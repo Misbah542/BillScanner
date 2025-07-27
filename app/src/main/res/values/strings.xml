@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">Bill Scanner</string>
+    <string name="scan_bill">Scan Bill</string>
+    <string name="camera_permission_required">Camera permission is required to scan bills</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="back">Back</string>
+    <string name="bill_details">Bill Details</string>
+    <string name="items">Items</string>
+    <string name="item">Item</string>
+    <string name="quantity">Qty</string>
+    <string name="rate">Rate</string>
+    <string name="amount">Amount</string>
+    <string name="bill_summary">Bill Summary</string>
+    <string name="item_total">Item Total</string>
+    <string name="service_charge">Service Charge</string>
+    <string name="state_gst">State GST</string>
+    <string name="central_gst">Central GST</string>
+    <string name="round_off">Round Off</string>
+    <string name="net_amount">Net Amount</string>
+    <string name="done">Done</string>
+    <string name="scan_another">Scan Another</string>
+    <string name="processing">Processing...</string>
+    <string name="features">Features</string>
+    <string name="easy_camera_scanning">Easy Camera Scanning</string>
+    <string name="detailed_item_breakdown">Detailed Item Breakdown</string>
+    <string name="tax_total_calculations">Tax &amp; Total Calculations</string>
+    <string name="fast_processing">Fast Processing</string>
+    <string name="scan_description">Scan your bills and get detailed breakdown of items and totals</string>
+</resources>
