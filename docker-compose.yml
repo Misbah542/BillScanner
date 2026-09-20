@@ -1,0 +1,55 @@
+# Brings up everything the API needs locally:
+#   docker compose up -d
+#   npm run db:migrate && SEED_DEMO=1 npm run db:seed
+#
+# Postgres is the only hard dependency. The scan pipeline drains its work through
+# the transactional outbox in Postgres, so there is no broker to run.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: snaptab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: snaptab
+      POSTGRES_PASSWORD: snaptab
+      POSTGRES_DB: snaptab
+    ports:
+      - '5432:5432'
+    volumes:
+      - snaptab-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U snaptab -d snaptab']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: snaptab-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: '4000'
+      DATABASE_URL: postgresql://snaptab:snaptab@postgres:5432/snaptab?schema=public
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET, e.g. openssl rand -base64 48}
+      OCR_PROVIDER: ${OCR_PROVIDER:-stub}
+      GOOGLE_VISION_API_KEY: ${GOOGLE_VISION_API_KEY:-}
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_DIR: /data/storage
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
+      APP_SHARE_BASE_URL: ${APP_SHARE_BASE_URL:-http://localhost:4000/t}
+    ports:
+      - '4000:4000'
+    volumes:
+      - snaptab-storage:/data/storage
+
+volumes:
+  snaptab-pgdata:
+  snaptab-storage:

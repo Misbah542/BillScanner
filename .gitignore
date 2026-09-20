@@ -1,0 +1,41 @@
+# ---- Node / monorepo ----
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.turbo/
+.env
+.env.*
+!.env.example
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# ---- Android / Gradle ----
+.gradle/
+apps/android/local.properties
+apps/android/app/build/
+apps/android/build/
+captures/
+*.apk
+*.aab
+*.keystore
+*.jks
+!debug.keystore
+.cxx/
+
+# ---- Prisma / db ----
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+
+# ---- Uploads (local storage driver) ----
+apps/api/.storage/
+
+# ---- IDE / OS ----
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db

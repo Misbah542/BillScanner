@@ -1,0 +1,734 @@
+// SnapTab data model.
+//
+// Two conventions run through the whole schema:
+//
+//  1. MONEY IS AN INTEGER of minor units (paise for INR) — never Float, never
+//     Decimal-as-string. Column names end in `Minor` so it is impossible to mix
+//     them up with a rupee figure. Int holds up to ~₹21,474,836 per row.
+//
+//  2. The spine is an EXPENSE, not a bill. A lone card debit read off an SMS is
+//     a complete PERSONAL expense with no items and no split; a scanned
+//     restaurant bill is a SHARED expense with items, tax lines and shares.
+//     Monthly spend adds personal expenses to *your share* of shared ones.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- identity ---
+
+enum UserStatus {
+  /// Signed in at least once.
+  ACTIVE
+  /// A placeholder created when someone was added to a split by email or phone
+  /// before they ever opened the app. Carries balances; claimed on first sign-in.
+  INVITED
+  DISABLED
+}
+
+enum AuthProvider {
+  EMAIL_OTP
+  PHONE_OTP
+  GOOGLE
+}
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  email         String?    @unique
+  phone         String?    @unique
+  emailVerified Boolean    @default(false)
+  phoneVerified Boolean    @default(false)
+  googleSub     String?    @unique
+  name          String?
+  avatarUrl     String?
+  currency      String     @default("INR")
+  locale        String     @default("en-IN")
+  timezone      String     @default("Asia/Kolkata")
+  status        UserStatus @default(ACTIVE)
+  /// Opt-in: store the text of bank alerts for support. Off by default.
+  keepAlertBodies Boolean  @default(false)
+  lastSeenAt    DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  sessions          Session[]
+  identities        Identity[]
+  devices           Device[]
+  memberships       GroupMember[]
+  groupsCreated     Group[]           @relation("GroupCreator")
+  invitesSent       GroupInvite[]     @relation("InviteSender")
+  invitesReceived   GroupInvite[]     @relation("InviteTarget")
+  expensesCreated   Expense[]         @relation("ExpenseCreator")
+  expensesPaid      Expense[]         @relation("ExpensePayer")
+  shares            ExpenseShare[]
+  itemShares        ExpenseItemShare[]
+  scans             Scan[]
+  alerts            BankAlert[]
+  merchantMemory    MerchantCategoryMemory[]
+  settlementsFrom   Settlement[]      @relation("SettlementFrom")
+  settlementsTo     Settlement[]      @relation("SettlementTo")
+  settlementsLogged Settlement[]      @relation("SettlementRecorder")
+  shareLinks        ShareLink[]
+  notifications     Notification[]
+  categories        Category[]        @relation("CategoryOwner")
+
+  @@index([status])
+}
+
+/// One row per way a user can sign in, so linking Google to an existing
+/// email account is an insert rather than a migration of the User row.
+model Identity {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider       AuthProvider
+  /// Email address, E.164 phone, or the Google `sub` claim.
+  providerSubject String
+  createdAt      DateTime     @default(now())
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+}
+
+/// A refresh-token family. Access tokens are stateless JWTs and are not stored.
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// SHA-256 of the refresh token. The token itself is never persisted.
+  refreshTokenHash String    @unique
+  deviceId         String?   @db.Uuid
+  userAgent        String?
+  ipHash           String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  /// Set when this token was rotated, so replay of an old token is detectable.
+  replacedById     String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+enum OtpChannel {
+  EMAIL
+  SMS
+}
+
+/// A one-time code in flight. Codes are hashed; only the hash is comparable.
+model OtpChallenge {
+  id          String     @id @default(uuid()) @db.Uuid
+  channel     OtpChannel
+  /// Lower-cased email or E.164 phone.
+  destination String
+  codeHash    String
+  attempts    Int        @default(0)
+  maxAttempts Int        @default(5)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime   @default(now())
+
+  @@index([destination, channel, consumedAt])
+  @@index([expiresAt])
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+model Device {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @db.Uuid
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform    DevicePlatform
+  /// FCM registration token. Unique so a re-install replaces rather than duplicates.
+  pushToken   String?        @unique
+  installId   String
+  appVersion  String?
+  osVersion   String?
+  model       String?
+  /// Whether the user granted the SMS permission on this device.
+  smsEnabled  Boolean        @default(false)
+  lastSeenAt  DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+
+  @@unique([userId, installId])
+  @@index([userId])
+}
+
+// ------------------------------------------------------------------ groups ---
+
+enum GroupRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Group {
+  id                 String      @id @default(uuid()) @db.Uuid
+  name               String
+  description        String?
+  currency           String      @default("INR")
+  /// A short emoji or icon key for the list row.
+  iconKey            String      @default("home")
+  defaultSplitMethod SplitMethod @default(EQUAL)
+  createdById        String      @db.Uuid
+  createdBy          User        @relation("GroupCreator", fields: [createdById], references: [id])
+  archivedAt         DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  members     GroupMember[]
+  invites     GroupInvite[]
+  expenses    Expense[]
+  settlements Settlement[]
+  shareLinks  ShareLink[]
+
+  @@index([createdById])
+  @@index([archivedAt])
+}
+
+model GroupMember {
+  id       String    @id @default(uuid()) @db.Uuid
+  groupId  String    @db.Uuid
+  group    Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String    @db.Uuid
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     GroupRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+
+  @@unique([groupId, userId])
+  @@index([userId, leftAt])
+}
+
+enum InviteChannel {
+  EMAIL
+  PHONE
+  LINK
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+/// Adding someone by email or phone. The invite carries a placeholder User so
+/// their share of a split is real money in the ledger before they ever sign in.
+model GroupInvite {
+  id            String        @id @default(uuid()) @db.Uuid
+  groupId       String        @db.Uuid
+  group         Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  channel       InviteChannel
+  /// Lower-cased email or E.164 phone. Null for a bare link invite.
+  destination   String?
+  token         String        @unique
+  invitedById   String        @db.Uuid
+  invitedBy     User          @relation("InviteSender", fields: [invitedById], references: [id])
+  /// The placeholder (or already-real) user this invite resolves to.
+  invitedUserId String?       @db.Uuid
+  invitedUser   User?         @relation("InviteTarget", fields: [invitedUserId], references: [id])
+  status        InviteStatus  @default(PENDING)
+  expiresAt     DateTime
+  acceptedAt    DateTime?
+  remindedAt    DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@unique([groupId, destination])
+  @@index([status, expiresAt])
+}
+
+// -------------------------------------------------------------- categories ---
+
+enum CategoryKind {
+  SPEND
+  INCOME
+  TRANSFER
+}
+
+model Category {
+  id        String       @id @default(uuid()) @db.Uuid
+  slug      String
+  name      String
+  iconKey   String
+  colorHex  String
+  tintHex   String
+  kind      CategoryKind @default(SPEND)
+  sortOrder Int          @default(0)
+  /// Null for the built-in taxonomy seeded from packages/shared/data.
+  ownerId   String?      @db.Uuid
+  owner     User?        @relation("CategoryOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  expenses Expense[]
+  memory   MerchantCategoryMemory[]
+  alerts   BankAlert[]
+
+  @@unique([ownerId, slug])
+  @@index([kind])
+}
+
+/// What this user has actually chosen for this merchant before. The strongest
+/// signal the classifier has, and the reason suggestions improve with use.
+model MerchantCategoryMemory {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @db.Uuid
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchantNormalized String
+  categoryId         String   @db.Uuid
+  category           Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  hits               Int      @default(1)
+  lastSeenAt         DateTime @default(now())
+
+  @@unique([userId, merchantNormalized, categoryId])
+  @@index([userId, merchantNormalized])
+}
+
+// ---------------------------------------------------------------- expenses ---
+
+enum ExpenseKind {
+  /// All yours. Counts toward monthly spend in full. May have no items.
+  PERSONAL
+  /// Split with other people. Your monthly spend counts only your share.
+  SHARED
+}
+
+enum ExpenseSource {
+  /// Photographed and read by the OCR pipeline.
+  SCAN
+  /// Created from a bank SMS / payment notification.
+  ALERT
+  MANUAL
+  IMPORT
+}
+
+enum ExpenseStatus {
+  DRAFT
+  OPEN
+  SETTLED
+  VOID
+}
+
+enum SplitMethod {
+  EQUAL
+  EXACT
+  PERCENT
+  SHARES
+  ITEMIZED
+}
+
+enum CategorySource {
+  /// The user picked it.
+  USER
+  /// Accepted from the classifier's top suggestion.
+  SUGGESTED
+  RULE
+  DEFAULT
+}
+
+model Expense {
+  id       String        @id @default(uuid()) @db.Uuid
+  kind     ExpenseKind   @default(PERSONAL)
+  source   ExpenseSource @default(MANUAL)
+  status   ExpenseStatus @default(OPEN)
+
+  /// Null for a personal expense, or for a shared one split outside any group.
+  groupId String? @db.Uuid
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  createdById String @db.Uuid
+  createdBy   User   @relation("ExpenseCreator", fields: [createdById], references: [id])
+  /// Who actually paid the merchant. For a personal expense, the owner.
+  paidById    String @db.Uuid
+  paidBy      User   @relation("ExpensePayer", fields: [paidById], references: [id])
+
+  merchantName       String?
+  /// Normalised by the shared rules, so history lookups and alert matching hit.
+  merchantNormalized String?
+  note               String?
+  occurredAt         DateTime
+  currency           String   @default("INR")
+
+  categoryId         String?         @db.Uuid
+  category           Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categorySource     CategorySource  @default(DEFAULT)
+  /// 0..1 from the classifier, kept so the UI can show "94%" and so accuracy is measurable.
+  categoryConfidence Float?
+
+  itemTotalMinor     Int @default(0)
+  serviceChargeMinor Int @default(0)
+  taxMinor           Int @default(0)
+  discountMinor      Int @default(0)
+  tipMinor           Int @default(0)
+  roundOffMinor      Int @default(0)
+  /// The amount actually charged. The only figure a PERSONAL alert expense needs.
+  totalMinor         Int
+
+  splitMethod SplitMethod?
+  extrasMode  String?      @default("PROPORTIONAL")
+
+  scanId          String? @unique @db.Uuid
+  scan            Scan?   @relation(fields: [scanId], references: [id], onDelete: SetNull)
+  receiptAssetKey String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items       ExpenseItem[]
+  taxLines    ExpenseTaxLine[]
+  shares      ExpenseShare[]
+  alerts      BankAlert[]
+  settlements Settlement[]
+  shareLinks  ShareLink[]
+
+  @@index([createdById, occurredAt])
+  @@index([groupId, occurredAt])
+  @@index([paidById, occurredAt])
+  @@index([kind, occurredAt])
+  @@index([categoryId])
+  @@index([merchantNormalized])
+}
+
+model ExpenseItem {
+  id        String  @id @default(uuid()) @db.Uuid
+  expenseId String  @db.Uuid
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  position  Int
+  name      String
+  /// Thousandths of a unit — receipts do sell half kilos.
+  quantityMilli  Int @default(1000)
+  unitPriceMinor Int
+  amountMinor    Int
+  /// The raw OCR line, so the review screen can show what was read.
+  sourceLine String?
+
+  shares ExpenseItemShare[]
+
+  @@unique([expenseId, position])
+  @@index([expenseId])
+}
+
+enum TaxKind {
+  SERVICE_CHARGE
+  CGST
+  SGST
+  IGST
+  VAT
+  CESS
+  OTHER
+}
+
+model ExpenseTaxLine {
+  id          String  @id @default(uuid()) @db.Uuid
+  expenseId   String  @db.Uuid
+  expense     Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  label       String
+  kind        TaxKind @default(OTHER)
+  /// Basis points: 1000 = 10%.
+  rateBp      Int?
+  amountMinor Int
+
+  @@index([expenseId])
+}
+
+/// One person's slice of a shared expense. Absent entirely for PERSONAL expenses.
+model ExpenseShare {
+  id        String  @id @default(uuid()) @db.Uuid
+  expenseId String  @db.Uuid
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  userId    String  @db.Uuid
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// What they owe. The sum of these always equals Expense.totalMinor exactly.
+  amountMinor Int
+  /// What they have actually put in (the payer's own outlay, or a later settlement).
+  paidMinor   Int @default(0)
+  /// The raw input that produced amountMinor, so a saved split can be re-edited:
+  /// minor units for EXACT, basis points for PERCENT, share count for SHARES.
+  inputValue  Int?
+  /// Slice of the total in basis points, for display.
+  weightBp    Int @default(0)
+
+  settledAt DateTime?
+
+  @@unique([expenseId, userId])
+  @@index([userId, settledAt])
+}
+
+/// Who was on which line, for an itemised split.
+model ExpenseItemShare {
+  id            String      @id @default(uuid()) @db.Uuid
+  expenseItemId String      @db.Uuid
+  expenseItem   ExpenseItem @relation(fields: [expenseItemId], references: [id], onDelete: Cascade)
+  userId        String      @db.Uuid
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weight        Int         @default(1)
+  amountMinor   Int
+
+  @@unique([expenseItemId, userId])
+  @@index([userId])
+}
+
+// ------------------------------------------------------------------- scans ---
+
+enum ScanStatus {
+  /// Uploaded, waiting for a worker.
+  QUEUED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+/// A receipt image on its way through the OCR pipeline. The client uploads and
+/// polls; all recognition and parsing happens server-side so the provider can be
+/// swapped and the rules fixed without shipping an app update.
+model Scan {
+  id     String     @id @default(uuid()) @db.Uuid
+  userId String     @db.Uuid
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status ScanStatus @default(QUEUED)
+
+  assetKey String
+  mimeType String
+  bytes    Int
+  /// SHA-256 of the image. Re-uploading the same photo returns the same scan.
+  checksum String
+  /// Client-supplied key so a retried upload does not create a second scan.
+  idempotencyKey String?
+
+  provider      String  @default("stub")
+  providerJobId String?
+  attempts      Int     @default(0)
+
+  rawText      String?
+  /// Whatever the provider returned, kept for debugging a bad read.
+  providerRaw  Json?
+  /// The ParsedReceipt from packages/shared.
+  parsed       Json?
+  confidence   Float?
+  errorCode    String?
+  errorMessage String?
+
+  queuedAt   DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  expense Expense?
+
+  @@unique([userId, checksum])
+  @@unique([userId, idempotencyKey])
+  @@index([status, queuedAt])
+}
+
+// ------------------------------------------------------------ bank alerts ---
+
+enum TxnDirection {
+  DEBIT
+  CREDIT
+}
+
+enum AlertChannel {
+  SMS
+  NOTIFICATION
+  MANUAL
+}
+
+enum AlertStatus {
+  /// Sitting in the inbox waiting for the user to decide.
+  UNMATCHED
+  /// Turned into, or attached to, an expense.
+  LINKED
+  /// Recognised as a settlement someone paid you.
+  SETTLED
+  IGNORED
+}
+
+enum AccountKind {
+  ACCOUNT
+  DEBIT_CARD
+  CREDIT_CARD
+  WALLET
+  UNKNOWN
+}
+
+/// A debit or credit SnapTab noticed on the phone. Parsed ON THE DEVICE with the
+/// shared rules; only the fields below come up. The message body is stored only
+/// if the user opted in.
+model BankAlert {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @db.Uuid
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  direction TxnDirection
+  channel   AlertChannel @default(SMS)
+  status    AlertStatus  @default(UNMATCHED)
+
+  amountMinor Int
+  currency    String @default("INR")
+
+  merchantRaw        String?
+  merchantNormalized String?
+  /// Last 3–6 digits only. A full account number is never accepted.
+  accountMask String?
+  accountKind AccountKind @default(UNKNOWN)
+  bankId      String?
+  bankName    String?
+  referenceNumber String?
+  balanceMinor    Int?
+
+  /// De-duplication key from the shared rules: exact on the bank's reference
+  /// number when there is one, otherwise amount + account + merchant + day.
+  fingerprint String
+  confidence  Float  @default(0)
+  /// Only present when User.keepAlertBodies is on.
+  rawBody     String?
+
+  suggestedCategoryId String?   @db.Uuid
+  suggestedCategory   Category? @relation(fields: [suggestedCategoryId], references: [id], onDelete: SetNull)
+
+  expenseId String?  @db.Uuid
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  settlementId String?     @db.Uuid
+  settlement   Settlement? @relation(fields: [settlementId], references: [id], onDelete: SetNull)
+
+  occurredAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, fingerprint])
+  @@index([userId, status, occurredAt])
+  @@index([userId, merchantNormalized])
+}
+
+// ------------------------------------------------------------ settlements ---
+
+enum SettlementMethod {
+  UPI
+  CASH
+  BANK_TRANSFER
+  CARD
+  OTHER
+}
+
+enum SettlementStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+model Settlement {
+  id      String @id @default(uuid()) @db.Uuid
+  groupId String? @db.Uuid
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  fromUserId String @db.Uuid
+  fromUser   User   @relation("SettlementFrom", fields: [fromUserId], references: [id])
+  toUserId   String @db.Uuid
+  toUser     User   @relation("SettlementTo", fields: [toUserId], references: [id])
+
+  amountMinor Int
+  currency    String           @default("INR")
+  method      SettlementMethod @default(UPI)
+  status      SettlementStatus @default(CONFIRMED)
+  note        String?
+
+  /// Set when a specific expense was settled rather than a running balance.
+  expenseId String?  @db.Uuid
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  recordedById String @db.Uuid
+  recordedBy   User   @relation("SettlementRecorder", fields: [recordedById], references: [id])
+
+  confirmedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  alerts BankAlert[]
+
+  @@index([groupId, createdAt])
+  @@index([fromUserId, status])
+  @@index([toUserId, status])
+}
+
+// ----------------------------------------------------------- share & push ---
+
+enum ShareScope {
+  /// Items and totals, no receipt photo, no bank alert.
+  SUMMARY
+  /// Adds the receipt image.
+  FULL
+}
+
+model ShareLink {
+  id      String @id @default(uuid()) @db.Uuid
+  token   String @unique
+  scope   ShareScope @default(SUMMARY)
+
+  expenseId String?  @db.Uuid
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  groupId   String?  @db.Uuid
+  group     Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  createdById String @db.Uuid
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime?
+  revokedAt DateTime?
+  viewCount Int       @default(0)
+  lastViewedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([expenseId])
+  @@index([groupId])
+}
+
+enum NotificationKind {
+  ALERT_NEEDS_EXPENSE
+  SCAN_READY
+  SCAN_FAILED
+  ADDED_TO_GROUP
+  SHARE_ASSIGNED
+  SETTLEMENT_RECEIVED
+  REMINDER_TO_PAY
+  INVITE_ACCEPTED
+}
+
+model Notification {
+  id     String           @id @default(uuid()) @db.Uuid
+  userId String           @db.Uuid
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind   NotificationKind
+  title  String
+  body   String
+  /// Deep-link target and any ids the app needs to act on it.
+  data   Json?
+  readAt DateTime?
+  /// When the push was handed to FCM. Null means in-app only.
+  pushedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+/// Written inside the same transaction as the change that caused it, then drained
+/// by a worker. A push is never sent from a request handler, so a slow FCM call
+/// cannot fail someone's expense.
+model OutboxEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  topic       String
+  payload     Json
+  attempts    Int       @default(0)
+  lastError   String?
+  availableAt DateTime  @default(now())
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([processedAt, availableAt])
+}

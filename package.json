@@ -1,0 +1,32 @@
+{
+  "name": "snaptab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SnapTab — scan a bill, itemise it, split it with anyone.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/api"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @snaptab/shared && npm run build --workspace @snaptab/api",
+    "dev": "npm run dev --workspace @snaptab/api",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace @snaptab/api",
+    "db:migrate": "npm run db:migrate --workspace @snaptab/api",
+    "db:seed": "npm run db:seed --workspace @snaptab/api",
+    "sync:assets": "node scripts/sync-shared-assets.mjs",
+    "android:assemble": "cd apps/android && ./gradlew assembleDebug",
+    "android:test": "cd apps/android && ./gradlew testDebugUnitTest",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
