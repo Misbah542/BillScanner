@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { IngestAlertInput, SMS_RULES_VERSION } from '@snaptab/shared';
+import { ExpenseKind, IngestAlertInput, SMS_RULES_VERSION, SplitMethodSchema } from '@snaptab/shared';
 import { prisma } from '../lib/prisma.js';
 import { ApiError } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -106,18 +106,50 @@ alertsRouter.get('/', validateQuery(ListQuery), async (req, res, next) => {
 });
 
 /**
- * `POST /v1/alerts/:id/expense` — the one-tap path for a lone debit.
+ * `POST /v1/alerts/:id/expense` — the one-tap path for a debit, either way.
  *
- * Turns the alert into a PERSONAL expense: no bill, no items, no split, straight
- * into this month's spend. This is the "not everything has a bill" case, and it is
- * meant to be a single tap from the notification.
+ * Two shapes, because a card debit is one of two things:
+ *
+ *   PERSONAL (the default) — all yours. No bill, no items, no split, straight into
+ *   this month's spend. This is the common case and the "not everything has a bill"
+ *   reason the PERSONAL kind exists.
+ *
+ *   SHARED with a `groupId` — the round you paid for the flat. Split equally across
+ *   that group's current members unless a method and participants are given, so it
+ *   is still one tap from the notification.
  */
-const ToExpenseBody = z.object({
-  categorySlug: z.string().trim().max(64).optional(),
-  note: z.string().trim().max(2000).optional(),
-  /** Set to attribute it to a group without splitting it yet. */
-  groupId: z.string().uuid().optional()
-});
+const ToExpenseBody = z
+  .object({
+    kind: ExpenseKind.default('PERSONAL'),
+    categorySlug: z.string().trim().max(64).optional(),
+    note: z.string().trim().max(2000).optional(),
+    /** Required for SHARED; on a PERSONAL expense it just files it under the group. */
+    groupId: z.string().uuid().optional(),
+    /** Defaults to EQUAL across every member of the group. */
+    splitMethod: SplitMethodSchema.optional(),
+    /** Override who is in, and by how much. Omit to use the whole group, equally. */
+    participants: z
+      .array(
+        z.object({
+          userId: z.string().uuid().optional(),
+          email: z.string().trim().email().optional(),
+          phone: z.string().trim().max(24).optional(),
+          displayName: z.string().trim().max(120).optional(),
+          value: z.number().int().min(0).optional()
+        })
+      )
+      .max(60)
+      .optional()
+  })
+  .superRefine((value, ctx) => {
+    if (value.kind === 'SHARED' && !value.groupId && !value.participants?.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['groupId'],
+        message: 'Splitting an alert needs a group, or the people to split it with.'
+      });
+    }
+  });
 
 alertsRouter.post(
   '/:id/expense',
@@ -152,9 +184,29 @@ alertsRouter.post(
       const { createExpense } = await import('../services/expenseService.js');
       const { serializeExpense } = await import('./expenses.routes.js');
 
+      // "Add to a group" means split it with that group, so default the
+      // participants to everyone currently in it, equally.
+      let participants = body.participants;
+      if (body.kind === 'SHARED' && !participants?.length) {
+        const members = await prisma.groupMember.findMany({
+          where: { groupId: body.groupId!, leftAt: null },
+          select: { userId: true }
+        });
+        if (members.length === 0) {
+          throw ApiError.badRequest('GROUP_EMPTY', 'That group has nobody in it to split with.');
+        }
+        participants = members.map((member) => ({ userId: member.userId }));
+      }
+
       const expense = await createExpense(userId, {
-        kind: 'PERSONAL',
+        kind: body.kind,
         source: 'ALERT',
+        ...(body.kind === 'SHARED'
+          ? {
+              splitMethod: body.splitMethod ?? 'EQUAL',
+              participants: participants!
+            }
+          : {}),
         ...(alert.merchantRaw ? { merchantName: alert.merchantRaw } : {}),
         ...(body.note ? { note: body.note } : {}),
         occurredAt: alert.occurredAt,

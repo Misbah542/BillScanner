@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A receipt with a torn bottom edge. Drawn on the 108dp adaptive-icon canvas with
+  the artwork inside the inner 72dp safe zone, so no launcher mask clips it.
+
+  The old manifest referenced @mipmap/ic_launcher with no icon in the project at
+  all, which failed resource linking.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Receipt body, torn along the bottom. -->
+    <path
+        android:fillColor="#F6F3EC"
+        android:pathData="M36,28 h36 a2,2 0 0 1 2,2 v44.5 l-6,-3.4 -6,3.4 -6,-3.4 -6,3.4 -6,-3.4 -6,3.4 -6,-3.4 V30 a2,2 0 0 1 2,-2 z" />
+
+    <!-- Line items. -->
+    <path
+        android:fillColor="#0F6B5C"
+        android:pathData="M42,38 h24 v3.4 h-24 z" />
+    <path
+        android:fillColor="#0F6B5C"
+        android:fillAlpha="0.55"
+        android:pathData="M42,46 h24 v3 h-24 z" />
+    <path
+        android:fillColor="#0F6B5C"
+        android:fillAlpha="0.55"
+        android:pathData="M42,53 h15 v3 h-15 z" />
+
+    <!-- The split: two marks going different ways. -->
+    <path
+        android:fillColor="#B4502A"
+        android:pathData="M42,62 h9 v3.2 h-9 z" />
+    <path
+        android:fillColor="#B4502A"
+        android:pathData="M57,62 h9 v3.2 h-9 z" />
+</vector>

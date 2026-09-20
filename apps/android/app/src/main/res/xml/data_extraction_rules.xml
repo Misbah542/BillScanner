@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ equivalent of backup_rules.xml, for cloud backup and for
+     device-to-device transfer. Same exclusions, same reasoning. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="snaptab_tokens.xml" />
+        <exclude domain="database" path="snaptab.db" />
+        <exclude domain="file" path="datastore/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="snaptab_tokens.xml" />
+        <exclude domain="database" path="snaptab.db" />
+        <exclude domain="file" path="datastore/" />
+    </device-transfer>
+</data-extraction-rules>

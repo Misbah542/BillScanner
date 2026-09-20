@@ -1,18 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.SnapTab" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <item name="colorPrimary">@color/primary_blue</item>
-        <item name="colorPrimaryVariant">@color/primary_blue_dark</item>
-        <item name="colorSecondary">@color/secondary_green</item>
-        <item name="android:colorBackground">@color/background_gray</item>
-        <item name="colorSurface">@color/surface_white</item>
-        <item name="colorOnPrimary">@color/surface_white</item>
-        <item name="colorOnSecondary">@color/surface_white</item>
-        <item name="colorOnBackground">@color/text_primary</item>
-        <item name="colorOnSurface">@color/text_primary</item>
+    <!--
+      The window theme, which draws before Compose takes over. Edge-to-edge is
+      enabled in MainActivity, so the bars are transparent here and their icon
+      contrast is set from Compose rather than with the deprecated
+      window.statusBarColor the old theme fought with.
+    -->
+    <style name="Theme.SnapTab" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
+        <item name="android:enforceNavigationBarContrast" tools:targetApi="29">false</item>
+        <item name="android:enforceStatusBarContrast" tools:targetApi="29">false</item>
     </style>
 
-    <style name="Theme.SnapTab" parent="Base.Theme.SnapTab" />
+    <style name="Theme.SnapTab.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/paper</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.SnapTab</item>
+    </style>
 </resources>

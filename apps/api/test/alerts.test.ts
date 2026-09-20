@@ -351,3 +351,146 @@ describe('the inbox', () => {
     expect(theirInbox.body.alerts).toHaveLength(0);
   });
 });
+
+describe('logging an alert to a group instead of to yourself', () => {
+  it('splits it equally across the group in one call', async () => {
+    const rohan = await signIn('rohan3@example.com', 'Rohan');
+    const group = await request(app)
+      .post('/v1/groups')
+      .set(auth(me))
+      .send({ name: 'Flat 402', invite: ['aditi2@example.com', 'rohan3@example.com'] })
+      .expect(201);
+
+    const ingest = await request(app)
+      .post('/v1/alerts')
+      .set(auth(me))
+      .send({ alerts: [deviceParsed(swiggy)] })
+      .expect(201);
+
+    const response = await request(app)
+      .post(`/v1/alerts/${ingest.body.results[0].alertId}/expense`)
+      .set(auth(me))
+      .send({ kind: 'SHARED', groupId: group.body.group.id })
+      .expect(201);
+
+    const expense = response.body.expense;
+    expect(expense.kind).toBe('SHARED');
+    expect(expense.splitMethod).toBe('EQUAL');
+    expect(expense.group.id).toBe(group.body.group.id);
+    expect(expense.shares).toHaveLength(3);
+    expect(
+      expense.shares.reduce((a: number, s: { amountMinor: number }) => a + s.amountMinor, 0)
+    ).toBe(48_600);
+    // 48600 / 3 is exact, and the payer has already covered their own share.
+    const mine = expense.shares.find((s: { userId: string }) => s.userId === me.id);
+    expect(mine.amountMinor).toBe(16_200);
+    expect(mine.paidMinor).toBe(16_200);
+    expect(expense.viewer.youAreOwedMinor).toBe(32_400);
+    expect(rohan.id).toBeTruthy();
+  });
+
+  it('honours a split method and explicit people over the whole group', async () => {
+    const group = await request(app)
+      .post('/v1/groups')
+      .set(auth(me))
+      .send({ name: 'Saturday', invite: ['aditi2@example.com'] })
+      .expect(201);
+
+    const ingest = await request(app)
+      .post('/v1/alerts')
+      .set(auth(me))
+      .send({ alerts: [deviceParsed(croma, 'AD-ICICIB')] })
+      .expect(201);
+
+    const response = await request(app)
+      .post(`/v1/alerts/${ingest.body.results[0].alertId}/expense`)
+      .set(auth(me))
+      .send({
+        kind: 'SHARED',
+        groupId: group.body.group.id,
+        splitMethod: 'PERCENT',
+        participants: [
+          { userId: me.id, value: 7000 },
+          { userId: aditi.id, value: 3000 }
+        ]
+      })
+      .expect(201);
+
+    expect(response.body.expense.splitMethod).toBe('PERCENT');
+    expect(response.body.expense.shares.map((s: { amountMinor: number }) => s.amountMinor)).toEqual([
+      874_930, 374_970
+    ]);
+  });
+
+  it('can split with people who are in no group at all', async () => {
+    const ingest = await request(app)
+      .post('/v1/alerts')
+      .set(auth(me))
+      .send({ alerts: [deviceParsed(swiggy)] })
+      .expect(201);
+
+    const response = await request(app)
+      .post(`/v1/alerts/${ingest.body.results[0].alertId}/expense`)
+      .set(auth(me))
+      .send({
+        kind: 'SHARED',
+        participants: [{ userId: me.id }, { email: 'someone@example.com' }]
+      })
+      .expect(201);
+
+    expect(response.body.expense.group).toBeNull();
+    expect(response.body.expense.shares).toHaveLength(2);
+  });
+
+  it('refuses to split without a group or any people', async () => {
+    const ingest = await request(app)
+      .post('/v1/alerts')
+      .set(auth(me))
+      .send({ alerts: [deviceParsed(swiggy)] })
+      .expect(201);
+
+    await request(app)
+      .post(`/v1/alerts/${ingest.body.results[0].alertId}/expense`)
+      .set(auth(me))
+      .send({ kind: 'SHARED' })
+      .expect(422);
+  });
+
+  it('refuses a group the user is not in', async () => {
+    const outsider = await signIn('outsider@example.com', 'Outsider');
+    const theirGroup = await request(app)
+      .post('/v1/groups')
+      .set(auth(outsider))
+      .send({ name: 'Not yours' })
+      .expect(201);
+
+    const ingest = await request(app)
+      .post('/v1/alerts')
+      .set(auth(me))
+      .send({ alerts: [deviceParsed(swiggy)] })
+      .expect(201);
+
+    const response = await request(app)
+      .post(`/v1/alerts/${ingest.body.results[0].alertId}/expense`)
+      .set(auth(me))
+      .send({ kind: 'SHARED', groupId: theirGroup.body.group.id })
+      .expect(403);
+    expect(response.body.error.code).toBe('NOT_A_MEMBER');
+  });
+
+  it('still defaults to a personal expense when nothing is said', async () => {
+    const ingest = await request(app)
+      .post('/v1/alerts')
+      .set(auth(me))
+      .send({ alerts: [deviceParsed(swiggy)] })
+      .expect(201);
+
+    const response = await request(app)
+      .post(`/v1/alerts/${ingest.body.results[0].alertId}/expense`)
+      .set(auth(me))
+      .send({})
+      .expect(201);
+    expect(response.body.expense.kind).toBe('PERSONAL');
+    expect(response.body.expense.shares).toEqual([]);
+  });
+});
