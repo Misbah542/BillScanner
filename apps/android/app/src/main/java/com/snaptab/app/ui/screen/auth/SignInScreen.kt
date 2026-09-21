@@ -13,8 +13,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -22,12 +24,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.snaptab.app.BuildConfig
 import com.snaptab.app.R
 import com.snaptab.app.ui.components.ErrorBanner
 import com.snaptab.app.ui.components.PrimaryButton
 import com.snaptab.app.ui.components.SecondaryButton
 import com.snaptab.app.ui.components.SegmentedTabs
 import com.snaptab.app.ui.components.SnapCard
+import kotlinx.coroutines.launch
 
 /**
  * Sign in: Google, or a code by email or phone. No password anywhere, so there is
@@ -36,10 +40,14 @@ import com.snaptab.app.ui.components.SnapCard
 @Composable
 fun SignInScreen(
     onSignedIn: () -> Unit,
-    onNeedsGoogleSignIn: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // Both declared before the VerifyScreen branch below returns, so they are reached on
+    // every composition of this function rather than only on one of its two paths.
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(state.signedIn) {
         if (state.signedIn) onSignedIn()
@@ -110,8 +118,28 @@ fun SignInScreen(
         if (state.googleAvailable) {
             Spacer(Modifier.height(10.dp))
             SecondaryButton(
-                text = stringResource(R.string.continue_with_google),
-                onClick = onNeedsGoogleSignIn
+                text = if (state.googleSigningIn) {
+                    stringResource(R.string.google_signing_in)
+                } else {
+                    stringResource(R.string.continue_with_google)
+                },
+                // Disabled while either sign-in path is in flight, so the sheet cannot be
+                // opened twice or raced against a code being verified.
+                enabled = !state.googleSigningIn && !state.verifying,
+                onClick = {
+                    viewModel.startGoogleSignIn()
+                    scope.launch {
+                        // The client id is a build config value, never a literal: it comes
+                        // from an untracked local.properties or the ANDROID_GOOGLE_CLIENT_ID
+                        // secret, and is empty in builds that have neither.
+                        when (val outcome = requestGoogleIdToken(context, BuildConfig.GOOGLE_CLIENT_ID)) {
+                            is GoogleSignInOutcome.Token -> viewModel.signInWithGoogle(outcome.idToken)
+                            GoogleSignInOutcome.Cancelled -> viewModel.onGoogleCancelled()
+                            is GoogleSignInOutcome.Failed ->
+                                viewModel.onGoogleFailed(context.getString(outcome.messageRes))
+                        }
+                    }
+                }
             )
 
             Spacer(Modifier.height(20.dp))

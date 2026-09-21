@@ -24,6 +24,8 @@ coil = "2.7.0"
 accompanist = "0.36.0"
 firebaseBom = "33.7.0"
 splashscreen = "1.0.1"
+credentials = "1.3.0"
+googleid = "1.1.1"
 junit = "4.13.2"
 androidxJunit = "1.2.1"
 androidxTestCore = "1.6.1"
@@ -82,6 +84,13 @@ androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx"
 
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
+
+# Google sign-in. Credential Manager is the supported route: the old
+# GoogleSignInClient / GoogleSignInApi from play-services-auth is deprecated, and
+# credentials-play-services-auth is the provider that actually talks to Play Services.
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
+androidx-credentials-play-services = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
+google-identity-googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
 
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
