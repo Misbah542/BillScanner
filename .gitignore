@@ -7,7 +7,11 @@ coverage/
 .turbo/
 .env
 .env.*
+# The only exceptions are the templates: placeholders that name the variables and
+# carry no values. A real value belongs to the environment that runs the code, or
+# to GitHub Actions secrets — never to the repository.
 !.env.example
+!.env.test.example
 npm-debug.log*
 pnpm-debug.log*
 yarn-error.log*
@@ -31,6 +35,7 @@ apps/api/prisma/*.db-journal
 
 # ---- Uploads (local storage driver) ----
 apps/api/.storage/
+apps/api/.storage-test/
 
 # ---- IDE / OS ----
 .idea/

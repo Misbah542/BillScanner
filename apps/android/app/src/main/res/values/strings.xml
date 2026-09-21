@@ -246,6 +246,10 @@
     <string name="toggle_read_sms_body">Needed to spot debits and credits. Parsing happens on the device — only the amount, merchant and last four digits are sent up.</string>
     <string name="toggle_keep_bodies_title">Keep the message text</string>
     <string name="toggle_keep_bodies_body">Off by default. Turn it on only if you want us able to explain why a message was read the way it was.</string>
+
+    <!-- Shown in place of the SMS toggles in the demo build, which has no SMS permissions. -->
+    <string name="demo_sms_unavailable_title">Not in the demo build</string>
+    <string name="demo_sms_unavailable_body">This build cannot read messages at all — the permission is not in it. The alerts in your inbox are sample data. Install the full app to have SnapTab read your own bank texts.</string>
     <string name="preferences">Preferences</string>
     <string name="monthly_spending">Monthly spending</string>
     <string name="categories">Categories</string>

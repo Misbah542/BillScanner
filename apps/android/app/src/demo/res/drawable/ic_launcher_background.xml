@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Clay instead of teal, for the demo flavour only.
+
+  The demo installs alongside the real app — different applicationId — so on a phone
+  with both there are two identical icons a hair apart in the drawer, and the label
+  is the only thing telling them apart. Labels are what you read second. This is
+  what you see first.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#B4502A" android:pathData="M0,0 h108 v108 h-108 z" />
+</vector>

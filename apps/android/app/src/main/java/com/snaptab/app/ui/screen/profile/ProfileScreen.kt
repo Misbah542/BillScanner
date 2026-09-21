@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snaptab.app.R
+import com.snaptab.app.core.BuildFlags
 import com.snaptab.app.ui.components.*
 import java.time.Instant
 import java.time.ZoneId
@@ -133,24 +134,33 @@ fun ProfileScreen(
 
             SectionLabel(text = stringResource(R.string.reading_card_alerts))
             SnapCard(contentPadding = PaddingValues(0.dp)) {
-                ToggleRow(
-                    title = stringResource(R.string.toggle_read_sms_title),
-                    detail = stringResource(R.string.toggle_read_sms_body),
-                    checked = state.smsEnabled,
-                    onCheckedChange = { wanted ->
-                        // Turning it ON needs the runtime permission; turning it off never does.
-                        if (wanted) onRequestSmsPermission() else viewModel.setSmsEnabled(false)
-                    },
-                    showDivider = true
-                )
-                ToggleRow(
-                    title = stringResource(R.string.toggle_keep_bodies_title),
-                    detail = stringResource(R.string.toggle_keep_bodies_body),
-                    checked = state.keepAlertBodies,
-                    enabled = state.smsEnabled,
-                    onCheckedChange = viewModel::setKeepAlertBodies,
-                    showDivider = false
-                )
+                if (BuildFlags.smsReadingAvailable) {
+                    ToggleRow(
+                        title = stringResource(R.string.toggle_read_sms_title),
+                        detail = stringResource(R.string.toggle_read_sms_body),
+                        checked = state.smsEnabled,
+                        onCheckedChange = { wanted ->
+                            // Turning it ON needs the runtime permission; turning it off never does.
+                            if (wanted) onRequestSmsPermission() else viewModel.setSmsEnabled(false)
+                        },
+                        showDivider = true
+                    )
+                    ToggleRow(
+                        title = stringResource(R.string.toggle_keep_bodies_title),
+                        detail = stringResource(R.string.toggle_keep_bodies_body),
+                        checked = state.keepAlertBodies,
+                        enabled = state.smsEnabled,
+                        onCheckedChange = viewModel::setKeepAlertBodies,
+                        showDivider = false
+                    )
+                } else {
+                    // The demo build has no SMS permissions to ask for, so it says so
+                    // rather than offering a switch that cannot move.
+                    InfoRow(
+                        title = stringResource(R.string.demo_sms_unavailable_title),
+                        detail = stringResource(R.string.demo_sms_unavailable_body)
+                    )
+                }
             }
 
             SectionLabel(text = stringResource(R.string.preferences))
@@ -515,6 +525,20 @@ private fun ToggleRow(
     }
     if (showDivider) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/** A row that only explains something. Used where a control would be misleading. */
+@Composable
+private fun InfoRow(title: String, detail: String) {
+    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp)) {
+        Text(text = title, style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = detail,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

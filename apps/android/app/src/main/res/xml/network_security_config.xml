@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  HTTPS everywhere. The two exceptions are the loopback addresses a developer's
-  local API runs on (10.0.2.2 is the host as seen from the emulator), and they are
-  scoped to the debug build only by virtue of being the only cleartext permits.
+  HTTPS only. No exceptions, no user-installed trust anchors.
+
+  The cleartext allowance a developer needs for a local API is in
+  src/debug/res/xml/network_security_config.xml, which replaces this file in debug
+  builds only. It is deliberately not here: a release APK that permits cleartext
+  to any address, loopback included, is a release APK that can be pointed at a
+  plain-HTTP server by anyone who controls the device's routing.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
@@ -10,9 +14,4 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">10.0.2.2</domain>
-        <domain includeSubdomains="false">127.0.0.1</domain>
-        <domain includeSubdomains="false">localhost</domain>
-    </domain-config>
 </network-security-config>

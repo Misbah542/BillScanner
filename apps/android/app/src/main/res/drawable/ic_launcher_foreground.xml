@@ -1,10 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  A receipt with a torn bottom edge. Drawn on the 108dp adaptive-icon canvas with
-  the artwork inside the inner 72dp safe zone, so no launcher mask clips it.
+  A receipt, torn once on the diagonal.
 
-  The old manifest referenced @mipmap/ic_launcher with no icon in the project at
-  all, which failed resource linking.
+  One recognisable object and one decisive cut, and nothing else. A launcher icon is
+  looked at for a fraction of a second at 48dp, which is around 20 device pixels of
+  usable detail on a mid-range phone; line items and split marks turn to mush at
+  that size, so the meaning has to survive in the silhouette alone. Here it does —
+  the shape reads as a receipt, the gap reads as a split.
+
+  The cut is genuine negative space, two separate paths, rather than a band painted
+  in the background colour. The themed-icon layer keeps only the alpha channel, so a
+  painted-over gap would be opaque there and the tear would disappear.
+
+  Geometry: the 108dp adaptive canvas shows only its central 72dp, and only the
+  central 66dp CIRCLE survives every mask. So the artwork is 32 wide by 56 tall,
+  centred on (54,54), which puts its furthest point — the corner of a perforation
+  tooth at (42,82) — 30.5 from the centre against the 33 allowed. A round mask,
+  a squircle and a teardrop all leave it whole.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -12,29 +24,13 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Receipt body, torn along the bottom. -->
+    <!-- Upper piece: rounded top, sheared off along the tear. -->
     <path
         android:fillColor="#F6F3EC"
-        android:pathData="M36,28 h36 a2,2 0 0 1 2,2 v44.5 l-6,-3.4 -6,3.4 -6,-3.4 -6,3.4 -6,-3.4 -6,3.4 -6,-3.4 V30 a2,2 0 0 1 2,-2 z" />
+        android:pathData="M43,26 h22 a5,5 0 0 1 5,5 V41 L38,55 V31 a5,5 0 0 1 5,-5 z" />
 
-    <!-- Line items. -->
+    <!-- Lower piece: the tear above, the perforated edge below. -->
     <path
-        android:fillColor="#0F6B5C"
-        android:pathData="M42,38 h24 v3.4 h-24 z" />
-    <path
-        android:fillColor="#0F6B5C"
-        android:fillAlpha="0.55"
-        android:pathData="M42,46 h24 v3 h-24 z" />
-    <path
-        android:fillColor="#0F6B5C"
-        android:fillAlpha="0.55"
-        android:pathData="M42,53 h15 v3 h-15 z" />
-
-    <!-- The split: two marks going different ways. -->
-    <path
-        android:fillColor="#B4502A"
-        android:pathData="M42,62 h9 v3.2 h-9 z" />
-    <path
-        android:fillColor="#B4502A"
-        android:pathData="M57,62 h9 v3.2 h-9 z" />
+        android:fillColor="#F6F3EC"
+        android:pathData="M70,47 V78 l-4,4 l-4,-4 l-4,4 l-4,-4 l-4,4 l-4,-4 l-4,4 l-4,-4 V61 z" />
 </vector>

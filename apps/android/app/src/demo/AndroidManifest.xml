@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The demo flavour is the build that gets handed round for review, so it asks for
+  nothing it cannot use.
+
+  Its bank alerts come from the seeded fake API, not from the phone, so the SMS
+  permissions are removed outright rather than merely left unrequested at runtime.
+  A demo APK that cannot read your messages is a much easier thing to install on
+  someone else's phone than one that promises not to.
+
+  The receiver itself is removed with them: a manifest-registered receiver whose
+  permissions are gone would never fire, and leaving a dead component in the
+  manifest invites the question of why it is there.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.RECEIVE_SMS" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_SMS" tools:node="remove" />
+
+    <application>
+        <receiver android:name=".sms.SmsReceiver" tools:node="remove" />
+    </application>
+</manifest>

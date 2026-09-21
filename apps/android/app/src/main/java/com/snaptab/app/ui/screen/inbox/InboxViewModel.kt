@@ -4,6 +4,7 @@ import android.Manifest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snaptab.app.core.ApiResult
+import com.snaptab.app.core.BuildFlags
 import com.snaptab.app.data.local.AlertEntity
 import com.snaptab.app.data.local.GroupEntity
 import com.snaptab.app.data.local.TokenStore
@@ -40,7 +41,12 @@ data class InboxUiState(
     val error: String? = null,
     val offline: Boolean = false
 ) {
-    val needsPermission: Boolean get() = !smsEnabled
+    /**
+     * Whether to offer the "let SnapTab read your bank texts" card. The demo build
+     * has no SMS permissions in its manifest, so asking would be denied instantly
+     * and the card would be a dead end — its alerts are seeded instead.
+     */
+    val needsPermission: Boolean get() = !smsEnabled && BuildFlags.smsReadingAvailable
 }
 
 @HiltViewModel
