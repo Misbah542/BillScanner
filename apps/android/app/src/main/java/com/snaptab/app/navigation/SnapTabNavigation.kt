@@ -39,6 +39,7 @@ import com.snaptab.app.ui.screen.personal.MonthlyScreen
 import com.snaptab.app.ui.screen.profile.ProfileScreen
 import com.snaptab.app.ui.screen.scan.ScanFlow
 import com.snaptab.app.ui.screen.settle.SettleScreen
+import com.snaptab.app.ui.theme.Motion
 
 object Routes {
     const val SIGN_IN = "sign_in"
@@ -161,10 +162,31 @@ fun SnapTabNavigation(
             }
         }
     ) { padding ->
+        val tabRoutes = remember { bottomTabs.map { it.route }.toSet() }
+
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
-            modifier = Modifier.padding(bottom = if (showBottomBar) padding.calculateBottomPadding() else 0.dp)
+            modifier = Modifier.padding(bottom = if (showBottomBar) padding.calculateBottomPadding() else 0.dp),
+            // Tabs cross-fade because they are siblings; anything pushed on top slides,
+            // because it is a layer above. Deciding per-transition rather than per-screen is
+            // what keeps "back" feeling like the reverse of how you arrived.
+            enterTransition = {
+                if (targetState.destination.route in tabRoutes) Motion.enterTab
+                else Motion.enterPush(this)
+            },
+            exitTransition = {
+                if (targetState.destination.route in tabRoutes) Motion.exitTab
+                else Motion.exitPush(this)
+            },
+            popEnterTransition = {
+                if (targetState.destination.route in tabRoutes) Motion.enterTab
+                else Motion.enterPop(this)
+            },
+            popExitTransition = {
+                if (targetState.destination.route in tabRoutes) Motion.exitTab
+                else Motion.exitPop(this)
+            }
         ) {
             composable(Routes.HOME) { entry ->
                 HomeScreen(

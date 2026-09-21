@@ -526,7 +526,7 @@ private fun ShareRow(
 ) {
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(name = share.user?.name, size = 34.dp)
+            Avatar(name = share.user?.name, imageUrl = share.user?.avatarUrl, size = 34.dp)
             Spacer(Modifier.width(11.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(

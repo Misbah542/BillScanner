@@ -249,7 +249,7 @@ private fun SplitRowItem(
 ) {
     SnapCard(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(name = row.name, size = 36.dp)
+            Avatar(name = row.name, imageUrl = row.avatarUrl, size = 36.dp)
             Spacer(Modifier.width(11.dp))
 
             Column(modifier = Modifier.weight(1f)) {

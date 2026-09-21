@@ -33,8 +33,10 @@ internal object DemoData {
     val me = UserDto(
         id = ME_ID,
         name = "Misbahul Haque",
-        email = "misbahul8@gmail.com",
-        phone = "+919820011234",
+        email = "you@example.com",
+        // An obviously-invented run of digits rather than a plausible number, so a demo
+        // build cannot put a stranger's handset on someone's screen.
+        phone = "+919000000001",
         status = "ACTIVE",
         emailVerified = true,
         phoneVerified = true,
@@ -51,7 +53,7 @@ internal object DemoData {
     val sneha = UserDto(
         id = SNEHA_ID,
         name = "Sneha N.",
-        phone = "+919930088214",
+        phone = "+919000000002",
         status = "INVITED",
         pending = true
     )

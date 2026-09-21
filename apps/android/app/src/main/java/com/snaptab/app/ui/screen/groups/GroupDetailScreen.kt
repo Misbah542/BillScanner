@@ -174,7 +174,7 @@ fun GroupDetailScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Avatar(name = person.name, size = 32.dp)
+                        Avatar(name = person.name, imageUrl = person.avatarUrl, size = 32.dp)
                         Spacer(Modifier.width(11.dp))
                         Text(
                             text = if (person.netMinor > 0) {

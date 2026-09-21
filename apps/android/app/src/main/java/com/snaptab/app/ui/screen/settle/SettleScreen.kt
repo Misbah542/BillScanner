@@ -148,7 +148,7 @@ private fun PersonCard(
 ) {
     SnapCard(contentPadding = PaddingValues(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(name = person.name, size = 38.dp)
+            Avatar(name = person.name, imageUrl = person.avatarUrl, size = 38.dp)
             Spacer(Modifier.width(11.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(

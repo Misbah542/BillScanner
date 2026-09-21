@@ -1,20 +1,28 @@
 package com.snaptab.app.ui.screen.home
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -22,14 +30,16 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snaptab.app.R
-import com.snaptab.app.ui.theme.AmountStyle
 import com.snaptab.app.core.Money
 import com.snaptab.app.data.local.ExpenseEntity
 import com.snaptab.app.ui.components.*
+import com.snaptab.app.ui.theme.AmountStyle
+import com.snaptab.app.ui.theme.Motion
 import com.snaptab.app.ui.theme.categoryColors
 import java.time.YearMonth
 import java.time.format.TextStyle as JavaTextStyle
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 /**
  * Home. Three things, in order of how often they matter: what you are owed and owe,
@@ -51,104 +61,145 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LazyColumn(
-        // The four tab screens have no TopAppBar of their own, and the outer Scaffold
-        // reserves space for the bottom bar only — so without this the first row sits
-        // under the status bar. Screens that own a Scaffold get the inset from it.
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.weight(1f)
-                )
-                BadgedIconButton(
-                    count = state.unmatchedAlerts,
-                    onClick = onOpenInbox,
-                    contentDescription = stringResource(R.string.nav_inbox)
-                )
-                Spacer(Modifier.width(8.dp))
-                Avatar(
-                    name = null,
-                    size = 44.dp,
-                    container = MaterialTheme.colorScheme.primary,
-                    content = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.clickable(onClick = onOpenProfile)
-                )
-            }
-        }
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Behind everything, and only on Home: the grid is scenery for the screen you land
+        // on, and repeating it on every tab would turn it from an entrance into wallpaper.
+        GridBackground()
 
-        item {
-            ErrorBanner(
-                message = state.error,
-                onDismiss = viewModel::dismissError,
-                onRetry = viewModel::refresh,
-                offline = state.offline
-            )
-        }
-
-        if (state.offline) {
+        LazyColumn(
+            // The four tab screens have no TopAppBar of their own, and the outer Scaffold
+            // reserves space for the bottom bar only — so without this the first row sits
+            // under the status bar. Screens that own a Scaffold get the inset from it.
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             item {
-                StatusChip(
-                    text = stringResource(R.string.error_offline),
-                    container = MaterialTheme.colorScheme.tertiaryContainer,
-                    content = MaterialTheme.colorScheme.onTertiaryContainer
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    BadgedIconButton(
+                        count = state.unmatchedAlerts,
+                        onClick = onOpenInbox,
+                        contentDescription = stringResource(R.string.nav_inbox)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Avatar(
+                        // Was hardcoded null, which is why the header showed a question mark:
+                        // initialsOf(null) is "?". Both come from the cache, so the right face
+                        // is there on the first frame.
+                        name = state.userName,
+                        imageUrl = state.userAvatarUrl,
+                        size = 44.dp,
+                        container = MaterialTheme.colorScheme.primary,
+                        content = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.clickable(onClick = onOpenProfile)
+                    )
+                }
+            }
+
+            item {
+                ErrorBanner(
+                    message = state.error,
+                    onDismiss = viewModel::dismissError,
+                    onRetry = viewModel::refresh,
+                    offline = state.offline
                 )
             }
-        }
 
-        item {
-            BalanceTiles(
-                owedToYou = state.balance?.owedToYouMinor ?: 0,
-                owedByYou = state.balance?.owedByYouMinor ?: 0,
-                peopleOwingYou = state.balance?.people?.count { it.netMinor > 0 } ?: 0,
-                currency = state.balance?.currency ?: "INR",
-                // Only on a first-ever launch, before anything has been cached.
-                loading = state.loadingBalance
-            )
-        }
+            if (state.offline) {
+                item {
+                    StatusChip(
+                        text = stringResource(R.string.error_offline),
+                        container = MaterialTheme.colorScheme.tertiaryContainer,
+                        content = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+            }
 
-        item {
-            SpendCard(
-                state = state,
-                onLensChange = viewModel::setLens,
-                onOpenDetails = onOpenMonthly
-            )
-        }
+            item {
+                BalanceTiles(
+                    owedToYou = state.balance?.owedToYouMinor ?: 0,
+                    owedByYou = state.balance?.owedByYouMinor ?: 0,
+                    peopleOwingYou = state.balance?.people?.count { it.netMinor > 0 } ?: 0,
+                    currency = state.balance?.currency ?: "INR",
+                    // Only on a first-ever launch, before anything has been cached.
+                    loading = state.loadingBalance
+                )
+            }
 
-        item {
-            SectionLabel(text = stringResource(R.string.recent_tabs)) {
-                TextButton(onClick = onOpenMonthly) {
-                    Text(stringResource(R.string.see_all))
+            item {
+                SpendCard(
+                    state = state,
+                    onLensChange = viewModel::setLens,
+                    onOpenDetails = onOpenMonthly
+                )
+            }
+
+            item {
+                SectionLabel(text = stringResource(R.string.recent_tabs)) {
+                    TextButton(onClick = onOpenMonthly) {
+                        Text(stringResource(R.string.see_all))
+                    }
+                }
+            }
+
+            if (state.expenses.isEmpty()) {
+                item {
+                    EmptyState(
+                        title = stringResource(R.string.nothing_yet_title),
+                        body = stringResource(R.string.nothing_yet_body),
+                        action = {
+                            SecondaryButton(
+                                text = stringResource(R.string.add_expense),
+                                onClick = onAddExpense,
+                                modifier = Modifier.widthIn(max = 220.dp)
+                            )
+                        }
+                    )
+                }
+            } else {
+                itemsIndexed(state.expenses, key = { _, expense -> expense.id }) { index, expense ->
+                    StaggeredItem(index = index) {
+                        ExpenseRow(expense = expense, onClick = { onOpenExpense(expense.id) })
+                    }
                 }
             }
         }
+    }
+}
 
-        if (state.expenses.isEmpty()) {
-            item {
-                EmptyState(
-                    title = stringResource(R.string.nothing_yet_title),
-                    body = stringResource(R.string.nothing_yet_body),
-                    action = {
-                        SecondaryButton(
-                            text = stringResource(R.string.add_expense),
-                            onClick = onAddExpense,
-                            modifier = Modifier.widthIn(max = 220.dp)
-                        )
-                    }
-                )
-            }
-        } else {
-            items(state.expenses, key = { it.id }) { expense ->
-                ExpenseRow(expense = expense, onClick = { onOpenExpense(expense.id) })
-            }
+/**
+ * Fades and lifts a row into place, a beat later for each one down the list.
+ *
+ * Keyed on the item's identity, not its index, so a refresh that reorders the list does not
+ * replay the animation for rows that were already on screen — the point is to show the list
+ * arriving, once.
+ */
+@Composable
+private fun StaggeredItem(index: Int, content: @Composable () -> Unit) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(Motion.staggerDelay(index).toLong())
+        shown = true
+    }
+    val progress by animateFloatAsState(
+        targetValue = if (shown) 1f else 0f,
+        animationSpec = tween(Motion.Normal, easing = Motion.Emphasised),
+        label = "stagger"
+    )
+    Box(
+        modifier = Modifier.graphicsLayer {
+            alpha = progress
+            translationY = (1f - progress) * 18.dp.toPx()
         }
+    ) {
+        content()
     }
 }
 

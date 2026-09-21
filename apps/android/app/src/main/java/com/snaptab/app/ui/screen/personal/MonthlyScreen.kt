@@ -1,8 +1,6 @@
 package com.snaptab.app.ui.screen.personal
 
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -35,6 +33,7 @@ import com.snaptab.app.R
 import com.snaptab.app.core.Money
 import com.snaptab.app.data.remote.dto.CategorySpendDto
 import com.snaptab.app.ui.components.*
+import com.snaptab.app.ui.theme.Motion
 import com.snaptab.app.ui.theme.categoryColors
 import java.time.YearMonth
 import java.time.format.TextStyle as JavaTextStyle
@@ -445,12 +444,12 @@ private fun CategoryRow(
     // segments, and animates rather than blinking between the two states.
     val alpha by animateFloatAsState(
         targetValue = if (dimmed) 0.45f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = Motion.settle(),
         label = "category-row-alpha"
     )
     val scale by animateFloatAsState(
         targetValue = if (selected) 1.02f else 1f,
-        animationSpec = spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow),
+        animationSpec = Motion.springy(),
         label = "category-row-scale"
     )
     Row(

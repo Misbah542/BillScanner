@@ -40,8 +40,18 @@ RUN mkdir -p /data/storage && chown -R snaptab:snaptab /data
 USER snaptab
 
 EXPOSE 4000
+
+# PORT is read rather than hardcoded: Cloud Run injects 8080, App Runner 8080, Fargate
+# whatever the task definition says. The app already honours it, and a health check that
+# did not would report a healthy container as dead.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-  CMD node -e "fetch('http://127.0.0.1:4000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "const p=process.env.PORT||4000;fetch('http://127.0.0.1:'+p+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 WORKDIR /app/apps/api
+
+# The API. The worker is the same image with a different command — see docs/DEPLOY.md:
+#   node dist/workers/index.js
+# Migrations are deliberately NOT run here. Every starting instance would race the others,
+# and a rollback would have already migrated the schema forward. They run once per deploy,
+# as their own step.
 CMD ["node", "dist/index.js"]

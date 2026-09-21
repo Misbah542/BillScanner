@@ -31,6 +31,7 @@ class TokenStore @Inject constructor(private val context: Context) {
         val accessExpiresAt = longPreferencesKey("access_expires_at")
         val userId = stringPreferencesKey("user_id")
         val userName = stringPreferencesKey("user_name")
+        val avatarUrl = stringPreferencesKey("avatar_url")
         val currency = stringPreferencesKey("currency")
         val installId = stringPreferencesKey("install_id")
         val smsEnabled = booleanPreferencesKey("sms_enabled")
@@ -43,6 +44,15 @@ class TokenStore @Inject constructor(private val context: Context) {
         context.tokenDataStore.data.map { it[Keys.refreshToken]?.isNotBlank() == true }
 
     val userId: Flow<String?> = context.tokenDataStore.data.map { it[Keys.userId] }
+
+    /**
+     * Name and avatar, so the header can draw the right face on its first frame.
+     *
+     * The name was already being stored and had no Flow to read it by, which is why the
+     * home screen passed null and got a question mark.
+     */
+    val userName: Flow<String?> = context.tokenDataStore.data.map { it[Keys.userName] }
+    val avatarUrl: Flow<String?> = context.tokenDataStore.data.map { it[Keys.avatarUrl] }
     val currency: Flow<String> = context.tokenDataStore.data.map { it[Keys.currency] ?: "INR" }
     val smsEnabled: Flow<Boolean> = context.tokenDataStore.data.map { it[Keys.smsEnabled] ?: false }
     val keepAlertBodies: Flow<Boolean> =
@@ -79,6 +89,7 @@ class TokenStore @Inject constructor(private val context: Context) {
         expiresInSeconds: Int,
         userId: String? = null,
         userName: String? = null,
+        avatarUrl: String? = null,
         currency: String? = null
     ) {
         context.tokenDataStore.edit { prefs ->
@@ -89,7 +100,17 @@ class TokenStore @Inject constructor(private val context: Context) {
                 System.currentTimeMillis() + (expiresInSeconds - 60).coerceAtLeast(0) * 1000L
             userId?.let { prefs[Keys.userId] = it }
             userName?.let { prefs[Keys.userName] = it }
+            avatarUrl?.let { prefs[Keys.avatarUrl] = it }
             currency?.let { prefs[Keys.currency] = it }
+        }
+    }
+
+    /** Mirrors what /users/me returned, so the cached header matches the profile screen. */
+    suspend fun saveProfile(name: String?, avatarUrl: String?) {
+        context.tokenDataStore.edit { prefs ->
+            name?.let { prefs[Keys.userName] = it }
+            // Explicitly removable: clearing your picture has to clear the cached one too.
+            if (avatarUrl.isNullOrBlank()) prefs.remove(Keys.avatarUrl) else prefs[Keys.avatarUrl] = avatarUrl
         }
     }
 
@@ -120,6 +141,7 @@ class TokenStore @Inject constructor(private val context: Context) {
             prefs.remove(Keys.accessExpiresAt)
             prefs.remove(Keys.userId)
             prefs.remove(Keys.userName)
+            prefs.remove(Keys.avatarUrl)
             prefs.remove(Keys.smsBackfilledAt)
         }
     }
