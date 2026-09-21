@@ -44,10 +44,25 @@ when a maintainer asks.
 **Everything secret goes in `Settings → Secrets and variables → Actions`** and is
 referenced as `${{ secrets.NAME }}` — never written into a file in the repository.
 
+Nothing in the table below has a committed default. `apps/android/local.properties` is
+git-ignored and is the local equivalent, for a developer who wants to build without a
+workflow; `.gitignore` also covers `google-services.json`, `client_secret*.json`, `*.jks`
+and `*.keystore`, because all four arrive as downloads with names that invite being
+dragged into the project.
+
+Set them with the CLI rather than pasting into a browser if you prefer:
+
+```bash
+gh secret set ANDROID_GOOGLE_CLIENT_ID    # then paste the value at the prompt
+gh secret set ANDROID_DEBUG_API_BASE_URL
+```
+
 | Secret | Needed for | Notes |
 | --- | --- | --- |
 | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | a signed release APK or AAB | Used by `release.yml`. See [Building a release](#building-a-release). |
 | `ANDROID_RELEASE_API_BASE_URL` | a `live` release build | Which API the released app talks to. Not secret so much as per-deployment, and there is no default. |
+| `ANDROID_DEBUG_API_BASE_URL` | the `liveDebug` APK that `ci.yml` builds | Which API that APK talks to. Optional: without it the build falls back to `http://10.0.2.2:4000/`, the emulator's view of the host. A debug build reaches cleartext only on `10.0.2.2`, `127.0.0.1` and `localhost`, so a remote host here has to be `https://`. |
+| `ANDROID_GOOGLE_CLIENT_ID` | Google sign-in on the Android side | The **Web** application client id, the same value as the API's `GOOGLE_CLIENT_IDS`. Not the Android OAuth client id — that one is registered in the Google console against the package name and the signing SHA-1, and never appears in code or configuration. Empty hides the Google button, so leaving it unset is a valid state rather than a broken build. |
 | `JWT_SECRET` | any real API deployment | `openssl rand -base64 48`. Rotating it signs everyone out, which is the intended behaviour after a compromise. |
 | `GOOGLE_VISION_API_KEY` | real OCR in a deployed API | Not needed by CI; the tests use the stub. |
 | `GOOGLE_CLIENT_IDS` | Google sign-in on the API side | Comma-separated. A client id is not secret in the cryptographic sense, but keep it configurable. |

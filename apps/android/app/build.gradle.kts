@@ -20,8 +20,19 @@ val localProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
-fun localOr(key: String, fallback: String): String =
-    (localProperties.getProperty(key) ?: System.getenv(key) ?: fallback)
+/**
+ * A build-time value: from local.properties on a developer's machine, from the
+ * environment in CI, or the fallback.
+ *
+ * The two key names differ on purpose, the same way `signingOr` below does it. A Gradle
+ * property is dotted — `snaptab.googleClientId` — and GitHub Actions cannot set that as
+ * an environment variable at all, because its keys have to match
+ * `[A-Za-z_][A-Za-z0-9_]*`. Reusing the dotted name as the variable name silently never
+ * matches, so the workflow's value would be ignored and the fallback used instead. Both
+ * names are therefore given explicitly rather than derived from one another.
+ */
+fun localOrEnv(propertyKey: String, envKey: String, fallback: String): String =
+    (localProperties.getProperty(propertyKey) ?: System.getenv(envKey) ?: fallback)
 
 /**
  * A signing credential, from local.properties on a developer's machine or from the
@@ -82,8 +93,23 @@ android {
         vectorDrawables.useSupportLibrary = true
 
         // 10.0.2.2 is the host machine as seen from the Android emulator.
-        buildConfigField("String", "API_BASE_URL", "\"${localOr("snaptab.apiBaseUrl", "http://10.0.2.2:4000/")}\"")
-        buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${localOr("snaptab.googleClientId", "")}\"")
+        // 10.0.2.2 is the host machine from an emulator. Note that a debug build can only
+        // reach cleartext on 10.0.2.2, 127.0.0.1 and localhost — see
+        // src/debug/res/xml/network_security_config.xml — so pointing this at a remote
+        // host means https, or a tunnel back to one of those three.
+        buildConfigField(
+            "String",
+            "API_BASE_URL",
+            "\"${localOrEnv("snaptab.apiBaseUrl", "ANDROID_DEBUG_API_BASE_URL", "http://10.0.2.2:4000/")}\""
+        )
+        // Empty by default, which hides the Google button rather than showing one that
+        // cannot work. Never checked in: it comes from an untracked local.properties or
+        // from a repository secret.
+        buildConfigField(
+            "String",
+            "GOOGLE_CLIENT_ID",
+            "\"${localOrEnv("snaptab.googleClientId", "ANDROID_GOOGLE_CLIENT_ID", "")}\""
+        )
     }
 
     /**
