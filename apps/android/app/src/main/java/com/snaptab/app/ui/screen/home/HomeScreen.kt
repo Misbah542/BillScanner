@@ -238,10 +238,19 @@ private fun BalanceTiles(
     owedToYou: Long,
     owedByYou: Long,
     peopleOwingYou: Int,
+    peopleYouOwe: Int,
     currency: String,
     loading: Boolean
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    // IntrinsicSize.Min measures both tiles and takes the taller, then fillMaxHeight makes
+    // the other match. They were the same width already — weight(1f) each — but different
+    // heights, because only one of them had a caption whenever you owed anybody. Doing it
+    // structurally rather than by keeping the captions the same length means a caption that
+    // wraps on one side can no longer make the pair uneven either.
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.height(IntrinsicSize.Min)
+    ) {
         Tile(
             label = stringResource(R.string.owed_to_you),
             amountMinor = owedToYou,
@@ -255,18 +264,28 @@ private fun BalanceTiles(
             content = MaterialTheme.colorScheme.onPrimaryContainer,
             accent = MaterialTheme.colorScheme.primary,
             loading = loading,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
         )
         Tile(
             label = stringResource(R.string.you_owe),
             amountMinor = owedByYou,
             currency = currency,
-            caption = if (owedByYou == 0L) stringResource(R.string.all_square) else "",
+            // Mirrors the other side rather than going blank: "you owe X across 2 people"
+            // is the same shape of fact as "you are owed Y across 3 people".
+            caption = if (peopleYouOwe > 0) {
+                stringResource(R.string.across_people, peopleYouOwe)
+            } else {
+                stringResource(R.string.all_square)
+            },
             container = MaterialTheme.colorScheme.secondaryContainer,
             content = MaterialTheme.colorScheme.onSecondaryContainer,
             accent = MaterialTheme.colorScheme.secondary,
             loading = loading,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
         )
     }
 }
