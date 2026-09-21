@@ -61,114 +61,108 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Behind everything, and only on Home: the grid is scenery for the screen you land
-        // on, and repeating it on every tab would turn it from an entrance into wallpaper.
-        GridBackground()
+    LazyColumn(
+        // The four tab screens have no TopAppBar of their own, and the outer Scaffold
+        // reserves space for the bottom bar only — so without this the first row sits
+        // under the status bar. Screens that own a Scaffold get the inset from it.
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                BadgedIconButton(
+                    count = state.unmatchedAlerts,
+                    onClick = onOpenInbox,
+                    contentDescription = stringResource(R.string.nav_inbox)
+                )
+                Spacer(Modifier.width(8.dp))
+                Avatar(
+                    // Was hardcoded null, which is why the header showed a question mark:
+                    // initialsOf(null) is "?". Both come from the cache, so the right face
+                    // is there on the first frame.
+                    name = state.userName,
+                    imageUrl = state.userAvatarUrl,
+                    size = 44.dp,
+                    container = MaterialTheme.colorScheme.primary,
+                    content = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.clickable(onClick = onOpenProfile)
+                )
+            }
+        }
 
-        LazyColumn(
-            // The four tab screens have no TopAppBar of their own, and the outer Scaffold
-            // reserves space for the bottom bar only — so without this the first row sits
-            // under the status bar. Screens that own a Scaffold get the inset from it.
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        item {
+            ErrorBanner(
+                message = state.error,
+                onDismiss = viewModel::dismissError,
+                onRetry = viewModel::refresh,
+                offline = state.offline
+            )
+        }
+
+        if (state.offline) {
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.weight(1f)
-                    )
-                    BadgedIconButton(
-                        count = state.unmatchedAlerts,
-                        onClick = onOpenInbox,
-                        contentDescription = stringResource(R.string.nav_inbox)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Avatar(
-                        // Was hardcoded null, which is why the header showed a question mark:
-                        // initialsOf(null) is "?". Both come from the cache, so the right face
-                        // is there on the first frame.
-                        name = state.userName,
-                        imageUrl = state.userAvatarUrl,
-                        size = 44.dp,
-                        container = MaterialTheme.colorScheme.primary,
-                        content = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.clickable(onClick = onOpenProfile)
-                    )
+                StatusChip(
+                    text = stringResource(R.string.error_offline),
+                    container = MaterialTheme.colorScheme.tertiaryContainer,
+                    content = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
+        }
+
+        item {
+            BalanceTiles(
+                owedToYou = state.balance?.owedToYouMinor ?: 0,
+                owedByYou = state.balance?.owedByYouMinor ?: 0,
+                peopleOwingYou = state.balance?.people?.count { it.netMinor > 0 } ?: 0,
+                peopleYouOwe = state.balance?.people?.count { it.netMinor < 0 } ?: 0,
+                currency = state.balance?.currency ?: "INR",
+                // Only on a first-ever launch, before anything has been cached.
+                loading = state.loadingBalance
+            )
+        }
+
+        item {
+            SpendCard(
+                state = state,
+                onLensChange = viewModel::setLens,
+                onOpenDetails = onOpenMonthly
+            )
+        }
+
+        item {
+            SectionLabel(text = stringResource(R.string.recent_tabs)) {
+                TextButton(onClick = onOpenMonthly) {
+                    Text(stringResource(R.string.see_all))
                 }
             }
+        }
 
+        if (state.expenses.isEmpty()) {
             item {
-                ErrorBanner(
-                    message = state.error,
-                    onDismiss = viewModel::dismissError,
-                    onRetry = viewModel::refresh,
-                    offline = state.offline
-                )
-            }
-
-            if (state.offline) {
-                item {
-                    StatusChip(
-                        text = stringResource(R.string.error_offline),
-                        container = MaterialTheme.colorScheme.tertiaryContainer,
-                        content = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                }
-            }
-
-            item {
-                BalanceTiles(
-                    owedToYou = state.balance?.owedToYouMinor ?: 0,
-                    owedByYou = state.balance?.owedByYouMinor ?: 0,
-                    peopleOwingYou = state.balance?.people?.count { it.netMinor > 0 } ?: 0,
-                    peopleYouOwe = state.balance?.people?.count { it.netMinor < 0 } ?: 0,
-                    currency = state.balance?.currency ?: "INR",
-                    // Only on a first-ever launch, before anything has been cached.
-                    loading = state.loadingBalance
-                )
-            }
-
-            item {
-                SpendCard(
-                    state = state,
-                    onLensChange = viewModel::setLens,
-                    onOpenDetails = onOpenMonthly
-                )
-            }
-
-            item {
-                SectionLabel(text = stringResource(R.string.recent_tabs)) {
-                    TextButton(onClick = onOpenMonthly) {
-                        Text(stringResource(R.string.see_all))
+                EmptyState(
+                    title = stringResource(R.string.nothing_yet_title),
+                    body = stringResource(R.string.nothing_yet_body),
+                    action = {
+                        SecondaryButton(
+                            text = stringResource(R.string.add_expense),
+                            onClick = onAddExpense,
+                            modifier = Modifier.widthIn(max = 220.dp)
+                        )
                     }
-                }
+                )
             }
-
-            if (state.expenses.isEmpty()) {
-                item {
-                    EmptyState(
-                        title = stringResource(R.string.nothing_yet_title),
-                        body = stringResource(R.string.nothing_yet_body),
-                        action = {
-                            SecondaryButton(
-                                text = stringResource(R.string.add_expense),
-                                onClick = onAddExpense,
-                                modifier = Modifier.widthIn(max = 220.dp)
-                            )
-                        }
-                    )
-                }
-            } else {
-                itemsIndexed(state.expenses, key = { _, expense -> expense.id }) { index, expense ->
-                    StaggeredItem(index = index) {
-                        ExpenseRow(expense = expense, onClick = { onOpenExpense(expense.id) })
-                    }
+        } else {
+            itemsIndexed(state.expenses, key = { _, expense -> expense.id }) { index, expense ->
+                StaggeredItem(index = index) {
+                    ExpenseRow(expense = expense, onClick = { onOpenExpense(expense.id) })
                 }
             }
         }

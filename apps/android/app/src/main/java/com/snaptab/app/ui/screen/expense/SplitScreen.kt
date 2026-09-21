@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
@@ -100,6 +101,9 @@ fun SplitScreen(
     }
 
     Scaffold(
+        // Transparent so the app-wide grid behind the NavHost shows through; a Scaffold
+        // otherwise paints an opaque `background` over it.
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = {
@@ -137,7 +141,7 @@ fun SplitScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.Transparent
                 )
             )
         },
