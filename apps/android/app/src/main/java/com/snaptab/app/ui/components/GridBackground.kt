@@ -42,10 +42,17 @@ import kotlin.math.sin
  * centre of the light. Brightness varies *along* each line, not per line, which is what
  * stops it looking like a highlighted row.
  *
- * The focus travels a Lissajous path — two sine waves on an irrational-ish frequency ratio —
- * so it wanders without ever settling into a loop you can predict. On top of that the whole
- * grid drifts diagonally by exactly one cell and wraps, which is seamless because a line
- * leaving one edge is the next line arriving at the other.
+ * The focus travels a **closed** Lissajous path, two sines on a 2 : 3 ratio, and the whole
+ * number matters. The first version used 1 : 0.73, chosen so the path would not repeat — but
+ * Compose restarts an infiniteRepeatable from its initial value, and a path that has not
+ * returned home by the end of its loop teleports when it does. That one jumped 711px
+ * vertically every cycle. A closed curve costs some unpredictability and buys continuity in
+ * both position and velocity.
+ *
+ * The grid drifts underneath by a whole number of cells — one across, two down — and wraps.
+ * Whole cells matter for the same reason: a line leaving one edge has to be replaced exactly
+ * by its neighbour, so the offset has to come back to zero modulo the cell size. The first
+ * version drifted 0.6 of a cell vertically, and jumped 54px each time it wrapped.
  */
 @Composable
 fun GridBackground(
@@ -65,8 +72,8 @@ fun GridBackground(
         initialValue = 0f,
         targetValue = if (animated) 1f else 0f,
         animationSpec = infiniteRepeatable(
-            // Linear and wrapping on exactly one cell, so there is no seam and no stutter.
-            animation = tween(durationMillis = 14_000, easing = LinearEasing),
+            // Linear and wrapping on whole cells, so there is no seam and no stutter.
+            animation = tween(durationMillis = 8_000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "grid-drift"
@@ -75,7 +82,7 @@ fun GridBackground(
         initialValue = 0f,
         targetValue = if (animated) 1f else 0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 19_000, easing = LinearEasing),
+            animation = tween(durationMillis = 12_000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "grid-travel"
@@ -119,19 +126,23 @@ private fun DrawScope.drawLitGrid(
     val height = size.height
     if (width <= 0f || height <= 0f || cell <= 1f) return
 
-    // Where the light is. Two sines on a 1 : 0.73 ratio, so the path does not close back on
-    // itself in any period short enough to notice.
+    // Whole-number frequencies, so the path closes: at the end of the loop the light is
+    // exactly where it began, moving in exactly the same direction. The vertical amplitude is
+    // the smaller of the two because the vertical frequency is the higher one, and equal
+    // amplitudes at 3x send it thrashing up and down the screen.
     val angle = travel * 2f * PI.toFloat()
     val focus = Offset(
-        x = width * (0.5f + 0.32f * sin(angle)),
-        y = height * (0.45f + 0.30f * sin(angle * 0.73f + 1.7f))
+        x = width * (0.5f + 0.34f * sin(2f * angle + 0.9f)),
+        y = height * (0.45f + 0.16f * sin(3f * angle))
     )
     val radius = maxOf(width, height) * 0.36f
     val bulge = cell * BULGE
 
-    // Drifts diagonally, wrapping on one cell in each axis.
+    // Drifts diagonally, wrapping on a WHOLE number of cells in each axis — one across, two
+    // down. A fractional number leaves the grid somewhere it has no line to hand over to,
+    // which is exactly what a jump is.
     val offsetX = drift * cell
-    val offsetY = drift * cell * 0.6f
+    val offsetY = drift * cell * 2f
 
     val stroke = 1.dp.toPx()
     // The unlit grid is present but barely; the light is what makes it legible.
