@@ -27,6 +27,8 @@ data class AuthUiState(
     val sending: Boolean = false,
     val verifying: Boolean = false,
     val googleAvailable: Boolean = BuildConfig.GOOGLE_CLIENT_ID.isNotBlank(),
+    /** True from the tap until the account sheet resolves, so the button cannot be tapped twice. */
+    val googleSigningIn: Boolean = false,
     val signedIn: Boolean = false,
     val error: String? = null,
     val offline: Boolean = false,
@@ -118,10 +120,27 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    /**
+     * The account sheet is about to open.
+     *
+     * The three calls below exist because the Credential Manager request needs a Context
+     * and so lives in the composable, while the state it affects belongs here. Routing the
+     * outcome back through the ViewModel keeps one busy flag and one error banner rather
+     * than a second set local to the screen.
+     */
+    fun startGoogleSignIn() = _state.update { it.copy(googleSigningIn = true, error = null) }
+
+    /** Dismissed the sheet. Not an error, so nothing is shown. */
+    fun onGoogleCancelled() = _state.update { it.copy(googleSigningIn = false) }
+
+    fun onGoogleFailed(message: String) = _state.update {
+        it.copy(googleSigningIn = false, error = message)
+    }
+
     /** Called with the id token the Google client handed back. */
     fun signInWithGoogle(idToken: String) {
         viewModelScope.launch {
-            _state.update { it.copy(verifying = true, error = null) }
+            _state.update { it.copy(verifying = true, googleSigningIn = false, error = null) }
             when (val result = auth.signInWithGoogle(idToken)) {
                 is ApiResult.Success -> {
                     runCatching { categories.refresh() }

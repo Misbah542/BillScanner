@@ -127,8 +127,7 @@ fun SnapTabNavigation(
         Box(modifier = Modifier.fillMaxSize()) {
             GridBackground()
             SignInScreen(
-                onSignedIn = { /* the root state flips and this composable is replaced */ },
-                onNeedsGoogleSignIn = viewModel::onGoogleSignInRequested
+                onSignedIn = { /* the root state flips and this composable is replaced */ }
             )
         }
         return

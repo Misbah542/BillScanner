@@ -290,6 +290,14 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.accompanist.permissions)
 
+    // Google sign-in. Both artifacts are needed: `credentials` is the API, and
+    // `credentials-play-services-auth` is the provider that fulfils a Google request
+    // through Play Services. With only the first, every call fails at runtime with
+    // NoCredentialException on a perfectly normal phone.
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.google.identity.googleid)
+
     // Push notifications. The google-services plugin is applied below only when a
     // google-services.json is present, so the build works without a Firebase
     // project — SMS-triggered notifications are posted locally and need no FCM.

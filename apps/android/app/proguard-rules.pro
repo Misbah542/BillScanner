@@ -78,3 +78,19 @@
 # ---- Compose ----
 # The Compose compiler emits no reflective lookups, so nothing is needed. This is
 # here to say so, rather than leaving the next person to wonder.
+
+# ---- Credential Manager / Google sign-in ----
+# Both artifacts ship consumer rules, so in principle nothing is needed here. The
+# reason a rule is written anyway is the shape of the one thing that is reflective:
+# CredentialManager picks its provider by loading
+# androidx.credentials.playservices.CredentialProviderPlayServicesImpl *by name*, so
+# R8 sees a class nobody calls. If the consumer rules ever stop covering it, the
+# symptom is not a build failure — it is NoCredentialException on a phone that has a
+# Google account, in release only, which is a long way to travel for a keep rule.
+-keep class androidx.credentials.playservices.** { *; }
+
+# GoogleIdTokenCredential.createFrom reads a Bundle by string key rather than by
+# reflection, so the credential classes need no members kept. Their names are kept
+# because the type is compared against TYPE_GOOGLE_ID_TOKEN_CREDENTIAL, a string
+# constant holding a class name.
+-keepnames class com.google.android.libraries.identity.googleid.** { *; }

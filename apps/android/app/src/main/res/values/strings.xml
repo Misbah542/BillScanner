@@ -11,6 +11,11 @@
     <string name="sign_in_headline">Snap the bill.\nSplit it in seconds.</string>
     <string name="sign_in_subtitle">Sign in and your tabs, groups and balances follow you to every device.</string>
     <string name="continue_with_google">Continue with Google</string>
+    <string name="google_signing_in">Signing in…</string>
+    <string name="google_not_configured">Google sign-in is not set up in this build.</string>
+    <string name="google_no_account">No Google account is available on this device. Add one in Settings, or use a code instead.</string>
+    <string name="google_no_token">Google did not return a sign-in token. Try a code instead.</string>
+    <string name="google_failed">Google sign-in could not be completed. Try a code instead.</string>
     <string name="or">or</string>
     <string name="tab_email">Email</string>
     <string name="tab_phone">Phone</string>
