@@ -472,7 +472,7 @@ private fun CategoryRow(
             modifier = Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(11.dp))
-                .background(colors.tint),
+                .background(colors.container),
             contentAlignment = Alignment.Center
         ) {
             Box(

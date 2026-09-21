@@ -336,7 +336,7 @@ private fun CategoryPicker(
                     Surface(
                         onClick = { onSelect(if (isSelected) null else category.slug) },
                         shape = RoundedCornerShape(19.dp),
-                        color = if (isSelected) colors.tint else MaterialTheme.colorScheme.surface,
+                        color = if (isSelected) colors.container else MaterialTheme.colorScheme.surface,
                         border = androidx.compose.foundation.BorderStroke(
                             width = if (isSelected) 2.dp else 1.dp,
                             color = if (isSelected) colors.fg else MaterialTheme.colorScheme.outlineVariant

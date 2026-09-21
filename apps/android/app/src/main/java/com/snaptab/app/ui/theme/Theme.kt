@@ -61,10 +61,10 @@ private val DarkColors = darkColorScheme(
     secondaryContainer = ClayTintDark,
     onSecondaryContainer = ClayLight,
 
-    tertiary = AmberTint,
+    tertiary = AmberLight,
     onTertiary = Color0A,
     tertiaryContainer = AmberTintDark,
-    onTertiaryContainer = AmberTint,
+    onTertiaryContainer = AmberLight,
 
     background = PaperDark,
     onBackground = InkDark,
@@ -81,8 +81,11 @@ private val DarkColors = darkColorScheme(
     errorContainer = ClayTintDark,
     onErrorContainer = ClayLight,
 
-    inverseSurface = Paper,
-    inverseOnSurface = Ink
+    // Not Paper. An inverted panel in dark mode is the brightest thing on the screen by
+    // definition, and at pure Paper it was a 16.8:1 slab — the single loudest surface in
+    // the app. The dimmed ink is bright enough to still read as inverted.
+    inverseSurface = InkDark,
+    inverseOnSurface = PaperDark
 )
 
 private val SnapTabShapes = Shapes(

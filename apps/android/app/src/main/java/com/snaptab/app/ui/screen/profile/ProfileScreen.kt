@@ -257,7 +257,19 @@ private fun ProfileHeader(
     onSaveName: () -> Unit,
     onCancelName: () -> Unit
 ) {
-    Surface(color = MaterialTheme.colorScheme.inverseSurface) {
+    // This header used to be an inverted slab — inverseSurface with inverseOnSurface on
+    // top. It was wrong in both themes, because the two stat accents inside it stayed on
+    // the normal polarity: the net-position figure used `primary`, which is a dark teal
+    // meant for a light ground, painted on a near-black panel in light mode and a light
+    // teal on a cream panel in dark mode. Either way the one number worth reading was the
+    // hardest thing on the screen to read.
+    //
+    // In dark mode it was also the loudest surface in the app: a 16.8:1 block of cream
+    // filling the top third of an otherwise near-black screen.
+    //
+    // So it is an ordinary surface now. The avatar and the type size say "this is you";
+    // a reversed-out panel was never carrying that meaning, only volume.
+    Surface(color = MaterialTheme.colorScheme.surface) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -270,7 +282,7 @@ private fun ProfileHeader(
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                         contentDescription = stringResource(R.string.back),
-                        tint = MaterialTheme.colorScheme.inverseOnSurface
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Spacer(Modifier.weight(1f))
@@ -280,10 +292,10 @@ private fun ProfileHeader(
                         shape = RoundedCornerShape(13.dp),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.3f)
+                            MaterialTheme.colorScheme.outlineVariant
                         ),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.inverseOnSurface
+                            contentColor = MaterialTheme.colorScheme.onSurface
                         )
                     ) {
                         Text(stringResource(R.string.edit))
@@ -311,13 +323,13 @@ private fun ProfileHeader(
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = MaterialTheme.colorScheme.inverseOnSurface,
-                                unfocusedTextColor = MaterialTheme.colorScheme.inverseOnSurface,
-                                focusedLabelColor = MaterialTheme.colorScheme.inverseOnSurface,
-                                unfocusedLabelColor = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f),
-                                focusedBorderColor = MaterialTheme.colorScheme.inverseOnSurface,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.4f),
-                                cursorColor = MaterialTheme.colorScheme.inverseOnSurface
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                focusedLabelColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedBorderColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                cursorColor = MaterialTheme.colorScheme.onSurface
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -333,7 +345,7 @@ private fun ProfileHeader(
                             TextButton(onClick = onCancelName) {
                                 Text(
                                     text = stringResource(R.string.cancel),
-                                    color = MaterialTheme.colorScheme.inverseOnSurface
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }
@@ -341,7 +353,7 @@ private fun ProfileHeader(
                         Text(
                             text = state.user?.name ?: stringResource(R.string.loading),
                             style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.inverseOnSurface,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -350,7 +362,7 @@ private fun ProfileHeader(
                             Text(
                                 text = stringResource(R.string.member_since, formatMonthYear(created)),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -364,7 +376,7 @@ private fun ProfileHeader(
                     label = stringResource(R.string.spent_in, currentMonthName()),
                     value = state.summary?.spentMinor ?: 0,
                     currency = state.summary?.currency ?: "INR",
-                    accent = MaterialTheme.colorScheme.inverseOnSurface,
+                    accent = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
                 HeaderStat(
@@ -401,13 +413,13 @@ private fun HeaderStat(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.12f))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 13.dp, vertical = 11.dp)
     ) {
         Text(
             text = label.uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -428,19 +440,19 @@ private fun HeaderStatText(label: String, value: String, modifier: Modifier = Mo
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.12f))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 13.dp, vertical = 11.dp)
     ) {
         Text(
             text = label.uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(3.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.inverseOnSurface
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }

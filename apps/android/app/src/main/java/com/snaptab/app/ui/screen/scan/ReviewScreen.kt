@@ -217,7 +217,7 @@ fun ReviewScreen(
                                     Surface(
                                         onClick = { onCategoryChange(suggestion.slug) },
                                         shape = RoundedCornerShape(19.dp),
-                                        color = if (selected) colors.tint else MaterialTheme.colorScheme.surface,
+                                        color = if (selected) colors.container else MaterialTheme.colorScheme.surface,
                                         border = androidx.compose.foundation.BorderStroke(
                                             if (selected) 2.dp else 1.dp,
                                             if (selected) colors.fg else MaterialTheme.colorScheme.outlineVariant

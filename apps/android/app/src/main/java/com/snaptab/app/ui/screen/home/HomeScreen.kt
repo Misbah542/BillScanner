@@ -472,7 +472,7 @@ fun ExpenseRow(expense: ExpenseEntity, onClick: () -> Unit) {
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(colors.tint),
+                    .background(colors.container),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
