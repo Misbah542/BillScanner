@@ -127,6 +127,7 @@ fun HomeScreen(
                     owedToYou = state.balance?.owedToYouMinor ?: 0,
                     owedByYou = state.balance?.owedByYouMinor ?: 0,
                     peopleOwingYou = state.balance?.people?.count { it.netMinor > 0 } ?: 0,
+                    peopleYouOwe = state.balance?.people?.count { it.netMinor < 0 } ?: 0,
                     currency = state.balance?.currency ?: "INR",
                     // Only on a first-ever launch, before anything has been cached.
                     loading = state.loadingBalance
