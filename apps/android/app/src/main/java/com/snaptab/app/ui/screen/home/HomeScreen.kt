@@ -108,7 +108,9 @@ fun HomeScreen(
                 owedToYou = state.balance?.owedToYouMinor ?: 0,
                 owedByYou = state.balance?.owedByYouMinor ?: 0,
                 peopleOwingYou = state.balance?.people?.count { it.netMinor > 0 } ?: 0,
-                currency = state.balance?.currency ?: "INR"
+                currency = state.balance?.currency ?: "INR",
+                // Only on a first-ever launch, before anything has been cached.
+                loading = state.loadingBalance
             )
         }
 
@@ -185,7 +187,8 @@ private fun BalanceTiles(
     owedToYou: Long,
     owedByYou: Long,
     peopleOwingYou: Int,
-    currency: String
+    currency: String,
+    loading: Boolean
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Tile(
@@ -200,6 +203,7 @@ private fun BalanceTiles(
             container = MaterialTheme.colorScheme.primaryContainer,
             content = MaterialTheme.colorScheme.onPrimaryContainer,
             accent = MaterialTheme.colorScheme.primary,
+            loading = loading,
             modifier = Modifier.weight(1f)
         )
         Tile(
@@ -210,6 +214,7 @@ private fun BalanceTiles(
             container = MaterialTheme.colorScheme.secondaryContainer,
             content = MaterialTheme.colorScheme.onSecondaryContainer,
             accent = MaterialTheme.colorScheme.secondary,
+            loading = loading,
             modifier = Modifier.weight(1f)
         )
     }
@@ -224,6 +229,7 @@ private fun Tile(
     container: Color,
     content: Color,
     accent: Color,
+    loading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -238,8 +244,14 @@ private fun Tile(
             color = content
         )
         Spacer(Modifier.height(4.dp))
-        Amount(minor = amountMinor, currency = currency, size = 27.sp, color = accent)
-        if (caption.isNotBlank()) {
+        if (loading) {
+            // A zero next to "owed to you" is not a neutral placeholder, it is a wrong
+            // answer that happens to be replaced a moment later.
+            Text(text = "—", style = AmountStyle.copy(fontSize = 27.sp), color = accent)
+        } else {
+            Amount(minor = amountMinor, currency = currency, size = 27.sp, color = accent)
+        }
+        if (!loading && caption.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
             Text(
                 text = caption,

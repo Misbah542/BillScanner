@@ -10,9 +10,11 @@ import androidx.room.RoomDatabase
         PendingAlertEntity::class,
         GroupEntity::class,
         CategoryEntity::class,
-        MonthlySummaryEntity::class
+        MonthlySummaryEntity::class,
+        BalanceEntity::class
     ],
-    version = 1,
+    // 2: added the balances cache.
+    version = 2,
     exportSchema = true
 )
 abstract class SnapTabDatabase : RoomDatabase() {
@@ -22,6 +24,7 @@ abstract class SnapTabDatabase : RoomDatabase() {
     abstract fun groups(): GroupDao
     abstract fun categories(): CategoryDao
     abstract fun monthlySummaries(): MonthlySummaryDao
+    abstract fun balances(): BalanceDao
 
     companion object {
         const val NAME = "snaptab.db"

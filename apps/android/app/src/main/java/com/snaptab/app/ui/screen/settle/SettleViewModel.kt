@@ -7,8 +7,10 @@ import com.snaptab.app.data.remote.dto.BalanceDto
 import com.snaptab.app.data.repository.SettlementRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -28,8 +30,23 @@ class SettleViewModel @Inject constructor(
     private val settlements: SettlementRepository
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(SettleUiState())
-    val state: StateFlow<SettleUiState> = _state.asStateFlow()
+    private val transient = MutableStateFlow(SettleUiState())
+
+    /**
+     * The balance comes from the cache, so this screen has its figures on the first frame
+     * and the refresh below only corrects them. It used to await the network before showing
+     * anything, which meant a visible spell of zeroes on every visit.
+     */
+    val state: StateFlow<SettleUiState> = combine(
+        settlements.observeBalance(),
+        transient
+    ) { cached, extra ->
+        extra.copy(
+            balance = cached,
+            // Only loading while there is genuinely nothing to show.
+            loading = cached == null && extra.loading
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettleUiState())
 
     init {
         refresh()
@@ -37,12 +54,10 @@ class SettleViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            _state.update { it.copy(loading = true, error = null) }
-            when (val result = settlements.balance()) {
-                is ApiResult.Success -> _state.update {
-                    it.copy(loading = false, balance = result.data)
-                }
-                is ApiResult.Failure -> _state.update {
+            transient.update { it.copy(error = null) }
+            when (val result = settlements.refreshBalance()) {
+                is ApiResult.Success -> transient.update { it.copy(loading = false) }
+                is ApiResult.Failure -> transient.update {
                     it.copy(loading = false, error = result.message, offline = result.isOffline)
                 }
             }
@@ -51,15 +66,16 @@ class SettleViewModel @Inject constructor(
 
     fun markReceived(userId: String, amountMinor: Long) {
         viewModelScope.launch {
-            _state.update { it.copy(working = true, error = null) }
+            transient.update { it.copy(working = true, error = null) }
             when (val result = settlements.recordReceived(userId, amountMinor)) {
                 is ApiResult.Success -> {
-                    _state.update {
+                    // No refresh() here: recording a settlement re-reads the balance in the
+                    // repository, so the cache — and therefore this screen — is already current.
+                    transient.update {
                         it.copy(working = false, unappliedMinor = result.data.unappliedMinor)
                     }
-                    refresh()
                 }
-                is ApiResult.Failure -> _state.update {
+                is ApiResult.Failure -> transient.update {
                     it.copy(working = false, error = result.message, offline = result.isOffline)
                 }
             }
@@ -68,13 +84,10 @@ class SettleViewModel @Inject constructor(
 
     fun markPaid(userId: String, amountMinor: Long) {
         viewModelScope.launch {
-            _state.update { it.copy(working = true, error = null) }
+            transient.update { it.copy(working = true, error = null) }
             when (val result = settlements.recordPaid(userId, amountMinor)) {
-                is ApiResult.Success -> {
-                    _state.update { it.copy(working = false) }
-                    refresh()
-                }
-                is ApiResult.Failure -> _state.update {
+                is ApiResult.Success -> transient.update { it.copy(working = false) }
+                is ApiResult.Failure -> transient.update {
                     it.copy(working = false, error = result.message, offline = result.isOffline)
                 }
             }
@@ -83,15 +96,15 @@ class SettleViewModel @Inject constructor(
 
     fun remind(userId: String) {
         viewModelScope.launch {
-            _state.update { it.copy(working = true, error = null) }
+            transient.update { it.copy(working = true, error = null) }
             when (val result = settlements.remind(userId)) {
-                is ApiResult.Success -> _state.update { it.copy(working = false) }
-                is ApiResult.Failure -> _state.update {
+                is ApiResult.Success -> transient.update { it.copy(working = false) }
+                is ApiResult.Failure -> transient.update {
                     it.copy(working = false, error = result.message, offline = result.isOffline)
                 }
             }
         }
     }
 
-    fun dismissError() = _state.update { it.copy(error = null) }
+    fun dismissError() = transient.update { it.copy(error = null) }
 }

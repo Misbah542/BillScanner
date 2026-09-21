@@ -9,6 +9,8 @@ import com.snaptab.app.data.repository.GroupRepository
 import com.snaptab.app.data.repository.SettlementRepository
 import com.snaptab.app.data.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -31,8 +33,14 @@ class GroupsViewModel @Inject constructor(
 
     private val extra = MutableStateFlow(GroupsUiState())
 
-    val state: StateFlow<GroupsUiState> = combine(groups.observe(), extra) { rows, other ->
-        other.copy(groups = rows)
+    // Groups and the balance both come from the cache, so the screen is complete on its
+    // first frame; refresh() below only corrects it.
+    val state: StateFlow<GroupsUiState> = combine(
+        groups.observe(),
+        settlements.observeBalance(),
+        extra
+    ) { rows, cachedBalance, other ->
+        other.copy(groups = rows, balance = cachedBalance)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GroupsUiState())
 
     init {
@@ -42,12 +50,16 @@ class GroupsViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             extra.update { it.copy(refreshing = true, error = null) }
-            val result = groups.refresh()
-            val balance = settlements.balance()
+            // Independent of each other, so they go together rather than one after the other.
+            val result = coroutineScope {
+                val groupsJob = async { groups.refresh() }
+                val balanceJob = async { settlements.refreshBalance() }
+                balanceJob.await()
+                groupsJob.await()
+            }
             extra.update {
                 it.copy(
                     refreshing = false,
-                    balance = balance.successOrNull ?: it.balance,
                     error = result.failureOrNull?.message?.takeIf { _ ->
                         result.failureOrNull?.isOffline != true
                     },
