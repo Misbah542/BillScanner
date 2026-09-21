@@ -15,8 +15,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.RECEIVE_SMS" tools:node="remove" />
-    <uses-permission android:name="android.permission.READ_SMS" tools:node="remove" />
+    <!--
+      tools:ignore is here because lint reads these two elements as declarations.
+      PermissionImpliesUnsupportedChromeOsHardware wants a matching
+      <uses-feature android:name="android.hardware.telephony" required="false"/> beside any
+      SMS permission — the main manifest has one, which is why it passes there. This file
+      does not declare the permissions, it removes them, but the merger's syntax for
+      removing something is to name it, and lint checks the source manifest rather than the
+      merged one, so it sees an SMS permission with no telephony feature next to it.
+
+      Adding the uses-feature here instead would mean the demo flavour announcing telephony
+      hardware in the same file where it gives up the right to use it. Suppressing the one
+      check on the two elements it misreads says what is actually true.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" tools:node="remove"
+        tools:ignore="PermissionImpliesUnsupportedChromeOsHardware" />
+    <uses-permission android:name="android.permission.READ_SMS" tools:node="remove"
+        tools:ignore="PermissionImpliesUnsupportedChromeOsHardware" />
 
     <application>
         <receiver android:name=".sms.SmsReceiver" tools:node="remove" />
