@@ -135,3 +135,26 @@ data class MonthlySummaryEntity(
     val byCategoryJson: String,
     val cachedAtEpoch: Long
 )
+
+/**
+ * The last known "who owes whom", cached so the balance card paints the moment the screen
+ * opens instead of showing zero until the network answers.
+ *
+ * It was the one figure in the app held only in memory, which made it the only one that
+ * flashed a zero on every launch — and a zero next to "owed to you" is not a neutral
+ * placeholder, it is a wrong answer that happens to be replaced a moment later.
+ */
+@Entity(tableName = "balances")
+data class BalanceEntity(
+    /** `global`, or a group id, so a group's balance caches separately from the overall one. */
+    @PrimaryKey val scope: String,
+    val currency: String,
+    val owedToYouMinor: Long,
+    val owedByYouMinor: Long,
+    val netMinor: Long,
+    /** Per-person balances, kept as JSON because they are only ever read whole. */
+    val peopleJson: String,
+    /** The minimal set of transfers that would clear it, likewise. */
+    val transfersJson: String,
+    val cachedAtEpoch: Long
+)

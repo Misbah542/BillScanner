@@ -111,6 +111,7 @@ object AppModule {
     @Provides fun pendingAlertDao(db: SnapTabDatabase): PendingAlertDao = db.pendingAlerts()
     @Provides fun groupDao(db: SnapTabDatabase): GroupDao = db.groups()
     @Provides fun categoryDao(db: SnapTabDatabase): CategoryDao = db.categories()
+    @Provides fun balanceDao(db: SnapTabDatabase): BalanceDao = db.balances()
     @Provides fun monthlySummaryDao(db: SnapTabDatabase): MonthlySummaryDao = db.monthlySummaries()
 
     @Provides

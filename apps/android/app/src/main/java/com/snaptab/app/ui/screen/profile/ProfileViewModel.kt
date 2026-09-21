@@ -11,6 +11,8 @@ import com.snaptab.app.data.remote.dto.UserDto
 import com.snaptab.app.data.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.time.YearMonth
 import javax.inject.Inject
@@ -71,9 +73,14 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
 
-            val me = users.me()
-            val summary = insights.refreshMonthly(YearMonth.now().toString())
-            val balance = settlements.balance()
+            // Three independent calls; awaiting them in turn tripled the time the screen
+            // spent showing nothing.
+            val (me, summary, balance) = coroutineScope {
+                val meJob = async { users.me() }
+                val summaryJob = async { insights.refreshMonthly(YearMonth.now().toString()) }
+                val balanceJob = async { settlements.refreshBalance() }
+                Triple(meJob.await(), summaryJob.await(), balanceJob.await())
+            }
 
             _state.update { current ->
                 current.copy(

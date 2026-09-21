@@ -118,3 +118,15 @@ interface MonthlySummaryDao {
     @Query("DELETE FROM monthly_summaries")
     suspend fun clear()
 }
+
+@Dao
+interface BalanceDao {
+    @Query("SELECT * FROM balances WHERE scope = :scope")
+    fun observe(scope: String): Flow<BalanceEntity?>
+
+    @Upsert
+    suspend fun upsert(balance: BalanceEntity)
+
+    @Query("DELETE FROM balances")
+    suspend fun clear()
+}

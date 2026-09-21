@@ -32,6 +32,8 @@ data class HomeUiState(
     val refreshing: Boolean = false,
     /** True until the first summary has arrived, whatever it turns out to say. */
     val loadingSummary: Boolean = true,
+    /** Likewise for the balance. False from the first frame once anything is cached. */
+    val loadingBalance: Boolean = true,
     val error: String? = null,
     val offline: Boolean = false
 ) {
@@ -51,7 +53,6 @@ class HomeViewModel @Inject constructor(
     private val transient = MutableStateFlow(TransientState())
 
     private data class TransientState(
-        val balance: BalanceDto? = null,
         val refreshing: Boolean = false,
         val loadedOnce: Boolean = false,
         val error: String? = null,
@@ -67,19 +68,26 @@ class HomeViewModel @Inject constructor(
         lens.flatMapLatest { expenses.observe(it.filter) },
         lens.flatMapLatest { insights.observeMonthly(YearMonth.now().toString(), it.wire) },
         alerts.observeUnmatchedCount(),
-        combine(alerts.observePendingCount(), transient) { pending, extra -> pending to extra }
-    ) { currentLens, expenseRows, summary, unmatched, (pending, extra) ->
+        // Nested to stay within combine's five typed parameters. The balance is observed
+        // from Room like everything else here, so it paints on the first frame.
+        combine(
+            alerts.observePendingCount(),
+            settlements.observeBalance(),
+            transient
+        ) { pending, balance, extra -> Triple(pending, balance, extra) }
+    ) { currentLens, expenseRows, summary, unmatched, (pending, cachedBalance, extra) ->
         HomeUiState(
             lens = currentLens,
             summary = summary,
-            balance = extra.balance,
+            balance = cachedBalance,
             expenses = expenseRows,
             unmatchedAlerts = unmatched,
             pendingAlerts = pending,
             refreshing = extra.refreshing,
-            // A null summary before the first load means "not known yet"; after it, the
-            // month genuinely has nothing in it. The card must not show zero for the first.
+            // A null value before the first load means "not known yet"; after it, the month
+            // genuinely has nothing in it. Neither card may show zero for the first case.
             loadingSummary = summary == null && !extra.loadedOnce,
+            loadingBalance = cachedBalance == null && !extra.loadedOnce,
             error = extra.error,
             offline = extra.offline
         )
@@ -120,7 +128,7 @@ class HomeViewModel @Inject constructor(
             // write to them.
             val (expenseResult, balanceResult) = coroutineScope {
                 val expenseJob = async { expenses.refresh(current.filter) }
-                val balanceJob = async { settlements.balance() }
+                val balanceJob = async { settlements.refreshBalance() }
                 // The lens on screen first, then the other two, so switching a lens later
                 // reads from cache instead of waiting on the network again.
                 val summaryJobs = SpendLens.entries
@@ -146,7 +154,6 @@ class HomeViewModel @Inject constructor(
                 it.copy(
                     refreshing = false,
                     loadedOnce = true,
-                    balance = balanceResult.successOrNull ?: it.balance,
                     // Offline is not an error worth a red banner when the cache has content;
                     // it is reported quietly instead.
                     error = failure?.message?.takeIf { _ -> failure.isOffline.not() },
