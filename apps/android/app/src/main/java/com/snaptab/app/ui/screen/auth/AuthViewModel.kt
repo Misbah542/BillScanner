@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snaptab.app.BuildConfig
 import com.snaptab.app.core.ApiResult
+import com.snaptab.app.core.onSuccess
 import com.snaptab.app.data.repository.AuthRepository
 import com.snaptab.app.data.repository.CategoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel

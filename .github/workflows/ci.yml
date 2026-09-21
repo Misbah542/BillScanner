@@ -163,9 +163,12 @@ jobs:
           # build-tools version AGP 8.7.3 pins.
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
+      # No build-root-directory: v4 removed that input, and passing it only produces a
+      # warning. Each Gradle step sets its own working-directory instead. The action's
+      # wrapper validation, which is on by default, checks gradle-wrapper.jar against
+      # the published checksums — worth keeping, since that jar is executable code
+      # committed to the repository.
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          build-root-directory: apps/android
 
       - name: Unit tests
         run: ./gradlew testDemoDebugUnitTest testLiveDebugUnitTest
