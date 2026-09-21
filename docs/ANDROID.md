@@ -236,6 +236,30 @@ if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google
 so a checkout with no Firebase project builds and runs, and notifications fall back
 to the in-app inbox.
 
+## Fonts
+
+Two bundled faces, in `res/font`: **Outfit** for headings and amounts, **Inter** for
+body. No serif anywhere — a serif on headings was what made the first build read as
+dated, and dropping it was most of the fix.
+
+They are bundled rather than fetched. Downloadable Google Fonts was the first attempt
+and is the wrong trade here: it needs Play Services, it needs a certificate array that
+turned out **not** to ship with `ui-text-google-fonts`, and a wrong certificate does not
+fail the build — it silently renders the fallback forever. 1.3MB of APK buys text that is
+right on the first frame, on every device, with nothing to configure.
+
+Only the weights actually used are bundled — Inter 400/500/600/700, Outfit 600/700.
+Compose picks the nearest weight for anything else, so the display face needs no Normal:
+every display style is SemiBold.
+
+Both are under the SIL Open Font License 1.1. `apps/android/fonts-LICENSE.txt` carries
+the notice and the full text, which the licence requires to travel with the files.
+
+The other half of the type design is the metrics, not the faces: negative tracking that
+tightens as size grows, line heights near the cap height on display sizes, and tabular
+figures (`tnum`) everywhere a number might be compared with the one above it, so amounts
+do not reflow as they change.
+
 ## Money on the client
 
 `core/Money.kt` mirrors `packages/shared/src/money.ts`: `parseOrNull`, `toEditable`,
