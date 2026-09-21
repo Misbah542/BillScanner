@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -105,21 +104,23 @@ fun Amount(
 fun CategoryChip(
     slug: String?,
     name: String?,
-    modifier: Modifier = Modifier,
-    dark: Boolean = isSystemInDarkTheme()
+    modifier: Modifier = Modifier
 ) {
     if (name.isNullOrBlank()) return
+    // No `dark` parameter any more. It existed so a caller could pick the light or dark
+    // pair by hand, and ExpenseDetailScreen passed `dark = false` — a chip permanently in
+    // light colours, on a dark screen. categoryColors() resolves it now.
     val colors = categoryColors(slug)
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(7.dp))
-            .background(if (dark) colors.tintDark else colors.tint)
+            .background(colors.container)
             .padding(horizontal = 8.dp, vertical = 3.dp)
     ) {
         Text(
             text = name,
             style = MaterialTheme.typography.labelSmall,
-            color = if (dark) colors.tint else colors.fg,
+            color = colors.fg,
             maxLines = 1
         )
     }

@@ -413,8 +413,7 @@ private fun ExpenseHeader(expense: ExpenseDto, onBack: () -> Unit, onDelete: () 
             ) {
                 CategoryChip(
                     slug = expense.category?.slug,
-                    name = expense.category?.name,
-                    dark = false
+                    name = expense.category?.name
                 )
                 if (expense.kind == "PERSONAL") {
                     StatusChip(

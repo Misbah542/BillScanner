@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.snaptab.app.ui.theme.InkTertiary
+import com.snaptab.app.ui.theme.InkTertiaryDark
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.exp
@@ -63,7 +65,15 @@ import kotlin.math.sin
 @Composable
 fun GridBackground(
     modifier: Modifier = Modifier,
-    color: Color = if (isSystemInDarkTheme()) Color(0xFF7FC9B8) else Color(0xFF0F6B5C),
+    /**
+     * Neutral ink, not the brand teal.
+     *
+     * It was teal, which was fine when it only sat behind Home. Behind every screen a
+     * coloured grid is a third accent competing with the two that mean something — teal
+     * for money coming to you, clay for money you owe — and it tinted every card and chip
+     * drawn over it. A background should be texture, not colour.
+     */
+    color: Color = if (isSystemInDarkTheme()) InkTertiaryDark else InkTertiary,
     /** Set false to stop it — a permanently moving background is never free. */
     animated: Boolean = true,
     cellSize: Dp = 52.dp,
@@ -77,9 +87,14 @@ fun GridBackground(
      * with nothing around it. It is a value in its own right now, set where a line is
      * genuinely visible.
      */
-    restAlpha: Float = if (isSystemInDarkTheme()) 0.15f else 0.08f,
+    restAlpha: Float = if (isSystemInDarkTheme()) 0.13f else 0.08f,
     /** What the grid is worth under the light. */
-    litAlpha: Float = if (isSystemInDarkTheme()) 0.42f else 0.22f
+    /**
+     * Dark mode gets the smaller lift. A light-on-dark sweep carries much further than the
+     * same number on paper, and at 0.42 the grid was one more thing glaring on an already
+     * loud dark theme.
+     */
+    litAlpha: Float = if (isSystemInDarkTheme()) 0.30f else 0.22f
 ) {
     val transition = rememberInfiniteTransition(label = "grid")
 
@@ -219,13 +234,16 @@ private fun DrawScope.drawLitGrid(
             // Toward white and more opaque as the light gets closer: "darker" everywhere
             // else, so the lit part reads as a filament rather than a wash.
             val alpha = baseAlpha + (litAlpha - baseAlpha) * strength
-            val segmentColor = lerp(color, Color.White, strength * 0.75f).copy(alpha = alpha)
+            // Toward white, but not all the way there: at 0.75 the peak of the sweep was
+            // effectively a white filament, which is exactly the kind of glare a dark theme
+            // does not need.
+            val segmentColor = lerp(color, Color.White, strength * 0.45f).copy(alpha = alpha)
             drawLine(
                 color = segmentColor,
                 start = previous,
                 end = point,
                 // The lit stretch is drawn a little heavier, which is most of what sells it.
-                strokeWidth = stroke * (1f + strength * 1.1f),
+                strokeWidth = stroke * (1f + strength * 0.7f),
                 cap = StrokeCap.Round
             )
             previous = point
