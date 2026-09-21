@@ -28,6 +28,7 @@ data class SplitRow(
     val userId: String,
     val name: String,
     val subtitle: String,
+    val avatarUrl: String? = null,
     val included: Boolean = true,
     /** Minor units for EXACT, whole percent for PERCENT, a count for SHARES. */
     val input: String = "",
@@ -100,6 +101,7 @@ class SplitViewModel @Inject constructor(
                     userId = share.userId,
                     name = share.user?.name ?: "Someone",
                     subtitle = share.user?.email ?: share.user?.phone.orEmpty(),
+                    avatarUrl = share.user?.avatarUrl,
                     pending = share.user?.pending == true
                 )
             }
@@ -111,6 +113,7 @@ class SplitViewModel @Inject constructor(
                             userId = member.user.id,
                             name = member.user.name ?: "Someone",
                             subtitle = member.user.email ?: member.user.phone.orEmpty(),
+                            avatarUrl = member.user.avatarUrl,
                             pending = member.user.pending
                         )
                     }
@@ -177,6 +180,7 @@ class SplitViewModel @Inject constructor(
                         userId = found?.id ?: PENDING_PREFIX + contact.trim(),
                         name = found?.name ?: contact.trim(),
                         subtitle = contact.trim(),
+                        avatarUrl = found?.avatarUrl,
                         pending = found == null
                     )
                     if (_state.value.rows.none { it.userId == row.userId }) {

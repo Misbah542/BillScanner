@@ -15,7 +15,14 @@ class UserRepository @Inject constructor(
     private val tokenStore: TokenStore
 ) {
 
-    suspend fun me(): ApiResult<UserDto> = apiCall { api.me() }.map { it.user }
+    /**
+     * Mirrors the name and avatar into the token store on the way past, so the home header
+     * can draw them from cache on its first frame instead of waiting for this call.
+     */
+    suspend fun me(): ApiResult<UserDto> = apiCall { api.me() }.map { response ->
+        tokenStore.saveProfile(response.user.name, response.user.avatarUrl)
+        response.user
+    }
 
     suspend fun updateProfile(
         name: String? = null,
@@ -30,7 +37,11 @@ class UserRepository @Inject constructor(
                     timezone = timezone
                 )
             )
-        }.map { it.user }
+        }.map { response ->
+            // Renaming yourself should change the header immediately, not on next launch.
+            tokenStore.saveProfile(response.user.name, response.user.avatarUrl)
+            response.user
+        }
 
     /**
      * Turning the "keep the message text" setting off also tells the server to forget

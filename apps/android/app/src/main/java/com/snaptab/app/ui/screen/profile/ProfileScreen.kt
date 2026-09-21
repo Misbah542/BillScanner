@@ -296,6 +296,7 @@ private fun ProfileHeader(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Avatar(
                     name = state.user?.name,
+                    imageUrl = state.user?.avatarUrl,
                     size = 64.dp,
                     container = MaterialTheme.colorScheme.primary,
                     content = MaterialTheme.colorScheme.onPrimary

@@ -2,9 +2,9 @@ package com.snaptab.app.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,14 +17,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.snaptab.app.R
 import com.snaptab.app.core.Money
 import com.snaptab.app.ui.theme.AmountStyle
@@ -141,11 +143,12 @@ fun StatusChip(
     }
 }
 
-/** Initials in a circle. No avatar image means no broken-image placeholder. */
+/** A face: the picture if there is one, the initials if there is not. */
 @Composable
 fun Avatar(
     name: String?,
     modifier: Modifier = Modifier,
+    imageUrl: String? = null,
     size: Dp = 40.dp,
     container: Color = MaterialTheme.colorScheme.primaryContainer,
     content: Color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -157,6 +160,10 @@ fun Avatar(
             .background(container),
         contentAlignment = Alignment.Center
     ) {
+        // Initials underneath, always. The image draws on top once it has loaded and fades
+        // in, so there is no blank circle while it downloads and no layout shift when it
+        // arrives — and if the URL is dead, what is left is the right initials rather than
+        // a broken-image icon.
         Text(
             text = initialsOf(name),
             style = MaterialTheme.typography.labelMedium.copy(
@@ -165,16 +172,30 @@ fun Avatar(
             ),
             color = content
         )
+        if (!imageUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize().clip(CircleShape)
+            )
+        }
     }
 }
 
 /** Overlapping faces, for a group row. */
 @Composable
-fun AvatarRow(names: List<String?>, modifier: Modifier = Modifier, max: Int = 4) {
+fun AvatarRow(
+    names: List<String?>,
+    modifier: Modifier = Modifier,
+    max: Int = 4,
+    imageUrls: List<String?> = emptyList()
+) {
     Row(modifier = modifier) {
         names.take(max).forEachIndexed { index, name ->
             Avatar(
                 name = name,
+                imageUrl = imageUrls.getOrNull(index),
                 size = 26.dp,
                 modifier = Modifier
                     .offset(x = (-6 * index).dp)

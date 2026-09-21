@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snaptab.app.core.ApiResult
 import com.snaptab.app.data.local.ExpenseEntity
+import com.snaptab.app.data.local.TokenStore
 import com.snaptab.app.data.repository.*
 import com.snaptab.app.data.remote.dto.BalanceDto
 import com.snaptab.app.data.remote.dto.MonthlySummaryDto
@@ -34,6 +35,9 @@ data class HomeUiState(
     val loadingSummary: Boolean = true,
     /** Likewise for the balance. False from the first frame once anything is cached. */
     val loadingBalance: Boolean = true,
+    /** For the header face. Cached, so it is right on the first frame. */
+    val userName: String? = null,
+    val userAvatarUrl: String? = null,
     val error: String? = null,
     val offline: Boolean = false
 ) {
@@ -46,11 +50,24 @@ class HomeViewModel @Inject constructor(
     private val insights: InsightsRepository,
     private val settlements: SettlementRepository,
     private val alerts: AlertRepository,
-    private val categories: CategoryRepository
+    private val categories: CategoryRepository,
+    private val users: UserRepository,
+    private val tokenStore: TokenStore
 ) : ViewModel() {
 
     private val lens = MutableStateFlow(SpendLens.ALL)
     private val transient = MutableStateFlow(TransientState())
+
+    /**
+     * combine takes at most five typed flows, and this screen needs eight. Nesting them is
+     * the usual answer; a named holder beats a Triple of Pairs for saying what is in it.
+     */
+    private data class Nested(
+        val pending: Int,
+        val balance: BalanceDto?,
+        val profile: Pair<String?, String?>,
+        val extra: TransientState
+    )
 
     private data class TransientState(
         val refreshing: Boolean = false,
@@ -73,9 +90,11 @@ class HomeViewModel @Inject constructor(
         combine(
             alerts.observePendingCount(),
             settlements.observeBalance(),
+            combine(tokenStore.userName, tokenStore.avatarUrl) { name, avatar -> name to avatar },
             transient
-        ) { pending, balance, extra -> Triple(pending, balance, extra) }
-    ) { currentLens, expenseRows, summary, unmatched, (pending, cachedBalance, extra) ->
+        ) { pending, balance, profile, extra -> Nested(pending, balance, profile, extra) }
+    ) { currentLens, expenseRows, summary, unmatched, nested ->
+        val (pending, cachedBalance, profile, extra) = nested
         HomeUiState(
             lens = currentLens,
             summary = summary,
@@ -83,6 +102,8 @@ class HomeViewModel @Inject constructor(
             expenses = expenseRows,
             unmatchedAlerts = unmatched,
             pendingAlerts = pending,
+            userName = profile.first,
+            userAvatarUrl = profile.second,
             refreshing = extra.refreshing,
             // A null value before the first load means "not known yet"; after it, the month
             // genuinely has nothing in it. Neither card may show zero for the first case.
@@ -142,10 +163,14 @@ class HomeViewModel @Inject constructor(
                     alerts.refresh()
                 }
                 val categoryJob = async { categories.refresh() }
+                // Writes the name and avatar through to the token store, which is what the
+                // header observes.
+                val profileJob = async { users.me() }
 
                 summaryJobs.forEach { it.await() }
                 alertJob.await()
                 categoryJob.await()
+                profileJob.await()
                 expenseJob.await() to balanceJob.await()
             }
 
