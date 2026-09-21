@@ -182,7 +182,11 @@ android {
         freeCompilerArgs += listOf(
             "-opt-in=kotlin.RequiresOptIn",
             "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi"
+            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
+            // flatMapLatest, used by the ViewModels that re-query when a filter changes.
+            // Deliberate, and stable in practice, so opt in once here rather than
+            // annotating each call site.
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi"
         )
     }
 
@@ -226,8 +230,8 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
-    implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.ui.text.google.fonts)
+    implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.extended)
     debugImplementation(libs.compose.ui.tooling)
@@ -271,7 +275,11 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Robolectric provides the Android runtime; ApplicationProvider, which is how a
+    // test gets hold of a Context, lives in androidx.test:core rather than in
+    // Robolectric itself. Without it BankAlertParserTest does not compile.
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.room.testing)
 

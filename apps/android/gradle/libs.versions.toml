@@ -26,6 +26,7 @@ firebaseBom = "33.7.0"
 splashscreen = "1.0.1"
 junit = "4.13.2"
 androidxJunit = "1.2.1"
+androidxTestCore = "1.6.1"
 espresso = "3.6.1"
 mockk = "1.13.13"
 turbine = "1.2.0"
@@ -46,6 +47,8 @@ compose-ui = { group = "androidx.compose.ui", name = "ui" }
 compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+# Downloadable Google Fonts. Versioned by the Compose BOM, and it ships the GMS
+# certificate array the provider is declared with, so no certificates are written by hand.
 compose-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
@@ -90,6 +93,8 @@ desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", ver
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }
+# ApplicationProvider, for the one unit test that needs a Context to read an asset.
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 mockk-android = { group = "io.mockk", name = "mockk-android", version.ref = "mockk" }

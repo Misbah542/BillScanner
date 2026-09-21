@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -101,7 +100,15 @@ fun SnapTabNavigation(
             target.startsWith("shared_tab") -> Routes.HOME
             else -> target
         }
-        runCatching { navController.navigate(route) }
+        // A notification that lands on a tab should select it, not stack a second copy on
+        // top of wherever the user already was.
+        runCatching {
+            if (route in bottomTabs.map { it.route }) {
+                navController.toTab(route)
+            } else {
+                navController.navigate(route) { launchSingleTop = true }
+            }
+        }
         onDeepLinkHandled()
     }
 
@@ -148,16 +155,8 @@ fun SnapTabNavigation(
                 SnapTabBottomBar(
                     currentRoute = currentRoute,
                     unreadAlerts = root.unreadAlerts,
-                    onSelect = { route ->
-                        navController.navigate(route) {
-                            // Single instance per tab, and the back button leaves the app from
-                            // the start destination rather than walking the tab history.
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    onScan = { navController.navigate(Routes.scan()) }
+                    onSelect = navController::toTab,
+                    onScan = { backStackEntry?.let { navController.push(it, Routes.scan()) } }
                 )
             }
         }
@@ -167,24 +166,25 @@ fun SnapTabNavigation(
             startDestination = Routes.HOME,
             modifier = Modifier.padding(bottom = if (showBottomBar) padding.calculateBottomPadding() else 0.dp)
         ) {
-            composable(Routes.HOME) {
+            composable(Routes.HOME) { entry ->
                 HomeScreen(
-                    onOpenExpense = { navController.navigate(Routes.expense(it)) },
-                    onOpenInbox = { navController.navigate(Routes.INBOX) },
-                    onOpenProfile = { navController.navigate(Routes.PROFILE) },
-                    onOpenMonthly = { navController.navigate(Routes.MONTHLY) },
-                    onAddExpense = { navController.navigate(Routes.ADD_EXPENSE) }
+                    onOpenExpense = { navController.push(entry, Routes.expense(it)) },
+                    // A tab, so it switches tabs rather than stacking a second inbox.
+                    onOpenInbox = { navController.toTab(Routes.INBOX) },
+                    onOpenProfile = { navController.push(entry, Routes.PROFILE) },
+                    onOpenMonthly = { navController.push(entry, Routes.MONTHLY) },
+                    onAddExpense = { navController.push(entry, Routes.ADD_EXPENSE) }
                 )
             }
 
-            composable(Routes.GROUPS) {
-                GroupsScreen(onOpenGroup = { navController.navigate(Routes.group(it)) })
+            composable(Routes.GROUPS) { entry ->
+                GroupsScreen(onOpenGroup = { navController.push(entry, Routes.group(it)) })
             }
 
-            composable(Routes.INBOX) {
+            composable(Routes.INBOX) { entry ->
                 InboxScreen(
-                    onOpenExpense = { navController.navigate(Routes.expense(it)) },
-                    onScanForAlert = { alert -> navController.navigate(Routes.scan(alert.id)) },
+                    onOpenExpense = { navController.push(entry, Routes.expense(it)) },
+                    onScanForAlert = { alert -> navController.push(entry, Routes.scan(alert.id)) },
                     onRequestSmsPermission = {
                         smsPermission.launch(
                             arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS)
@@ -207,51 +207,38 @@ fun SnapTabNavigation(
             ) { entry ->
                 ScanFlow(
                     alertId = entry.arguments?.getString("alertId"),
-                    onClose = { navController.popBackStack() },
-                    onSaved = { expenseId ->
-                        navController.popBackStack()
-                        navController.navigate(Routes.expense(expenseId))
-                    },
-                    onSplit = { expenseId ->
-                        navController.popBackStack()
-                        navController.navigate(Routes.split(expenseId))
-                    },
-                    onEnterByHand = {
-                        navController.popBackStack()
-                        navController.navigate(Routes.ADD_EXPENSE)
-                    }
+                    onClose = { navController.up(entry) },
+                    // Replace, not push: backing out of the expense should reach whatever
+                    // opened the camera, not the camera again.
+                    onSaved = { expenseId -> navController.replace(entry, Routes.expense(expenseId)) },
+                    onSplit = { expenseId -> navController.replace(entry, Routes.split(expenseId)) },
+                    onEnterByHand = { navController.replace(entry, Routes.ADD_EXPENSE) }
                 )
             }
 
-            composable(Routes.ADD_EXPENSE) {
+            composable(Routes.ADD_EXPENSE) { entry ->
                 AddExpenseScreen(
-                    onClose = { navController.popBackStack() },
-                    onSaved = { expenseId ->
-                        navController.popBackStack()
-                        navController.navigate(Routes.expense(expenseId))
-                    },
-                    onScanInstead = {
-                        navController.popBackStack()
-                        navController.navigate(Routes.scan())
-                    },
-                    onSplitInstead = { navController.navigate(Routes.GROUPS) }
+                    onClose = { navController.up(entry) },
+                    onSaved = { expenseId -> navController.replace(entry, Routes.expense(expenseId)) },
+                    onScanInstead = { navController.replace(entry, Routes.scan()) },
+                    onSplitInstead = { navController.toTab(Routes.GROUPS) }
                 )
             }
 
-            composable(Routes.MONTHLY) {
+            composable(Routes.MONTHLY) { entry ->
                 MonthlyScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpenInbox = { navController.navigate(Routes.INBOX) },
-                    onAddExpense = { navController.navigate(Routes.ADD_EXPENSE) },
-                    onOpenSettle = { navController.navigate(Routes.SETTLE) }
+                    onBack = { navController.up(entry) },
+                    onOpenInbox = { navController.toTab(Routes.INBOX) },
+                    onAddExpense = { navController.push(entry, Routes.ADD_EXPENSE) },
+                    onOpenSettle = { navController.toTab(Routes.SETTLE) }
                 )
             }
 
-            composable(Routes.PROFILE) {
+            composable(Routes.PROFILE) { entry ->
                 ProfileScreen(
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.up(entry) },
                     onSignedOut = { /* the root state flips and sign-in takes over */ },
-                    onOpenMonthly = { navController.navigate(Routes.MONTHLY) },
+                    onOpenMonthly = { navController.push(entry, Routes.MONTHLY) },
                     onRequestSmsPermission = {
                         smsPermission.launch(
                             arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS)
@@ -267,10 +254,10 @@ fun SnapTabNavigation(
                 val id = entry.arguments?.getString("expenseId").orEmpty()
                 ExpenseDetailScreen(
                     expenseId = id,
-                    onBack = { navController.popBackStack() },
-                    onEditSplit = { navController.navigate(Routes.split(it)) },
-                    onSplitByItem = { navController.navigate(Routes.split(it)) },
-                    onDeleted = { navController.popBackStack() }
+                    onBack = { navController.up(entry) },
+                    onEditSplit = { navController.push(entry, Routes.split(it)) },
+                    onSplitByItem = { navController.push(entry, Routes.split(it)) },
+                    onDeleted = { navController.up(entry) }
                 )
             }
 
@@ -281,8 +268,8 @@ fun SnapTabNavigation(
                 val id = entry.arguments?.getString("expenseId").orEmpty()
                 SplitScreen(
                     expenseId = id,
-                    onBack = { navController.popBackStack() },
-                    onSaved = { navController.popBackStack() },
+                    onBack = { navController.up(entry) },
+                    onSaved = { navController.up(entry) },
                     onSplitByItem = { /* the split screen handles item mode inline */ }
                 )
             }
@@ -294,10 +281,10 @@ fun SnapTabNavigation(
                 val id = entry.arguments?.getString("groupId").orEmpty()
                 GroupDetailScreen(
                     groupId = id,
-                    onBack = { navController.popBackStack() },
-                    onOpenExpense = { navController.navigate(Routes.expense(it)) },
-                    onAddExpense = { navController.navigate(Routes.ADD_EXPENSE) },
-                    onSettleUp = { navController.navigate(Routes.SETTLE) }
+                    onBack = { navController.up(entry) },
+                    onOpenExpense = { navController.push(entry, Routes.expense(it)) },
+                    onAddExpense = { navController.push(entry, Routes.ADD_EXPENSE) },
+                    onSettleUp = { navController.toTab(Routes.SETTLE) }
                 )
             }
         }

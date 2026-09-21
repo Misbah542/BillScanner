@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.snaptab.app.R
+import com.snaptab.app.ui.theme.AmountStyle
 import com.snaptab.app.core.Money
 import com.snaptab.app.data.local.ExpenseEntity
 import com.snaptab.app.ui.components.*
@@ -51,7 +52,12 @@ fun HomeScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        // The four tab screens have no TopAppBar of their own, and the outer Scaffold
+        // reserves space for the bottom bar only — so without this the first row sits
+        // under the status bar. Screens that own a Scaffold get the inset from it.
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -274,11 +280,22 @@ private fun SpendCard(
         )
 
         Spacer(Modifier.height(12.dp))
-        Amount(
-            minor = summary?.spentMinor ?: 0,
-            currency = summary?.currency ?: "INR",
-            size = 32.sp
-        )
+        if (state.loadingSummary) {
+            // Not zero. A zero here reads as a finished answer — "you have spent nothing
+            // this month" — which is what made the card look like it had loaded and got it
+            // wrong. A dash says the figure is still coming.
+            Text(
+                text = "—",
+                style = AmountStyle.copy(fontSize = 32.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Amount(
+                minor = summary?.spentMinor ?: 0,
+                currency = summary?.currency ?: "INR",
+                size = 32.sp
+            )
+        }
 
         val caption = when (state.lens) {
             SpendLens.ALL -> summary?.let {

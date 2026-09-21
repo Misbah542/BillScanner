@@ -20,11 +20,24 @@ export const expenseInclude = {
   items: {
     orderBy: { position: 'asc' },
     include: {
-      shares: { select: { userId: true, weight: true, amountMinor: true } }
+      shares: {
+        // Deterministic, for the same reason the shares below are.
+        orderBy: { userId: 'asc' },
+        select: { userId: true, weight: true, amountMinor: true }
+      }
     }
   },
   taxLines: true,
   shares: {
+    /**
+     * Biggest share first, then by id to break a tie.
+     *
+     * Without an order Postgres returns these in whatever order it finds them, which is
+     * not stable between requests — so the list of people in a split could reshuffle on
+     * a refresh, with no change to the data. Biggest first is also the useful order to
+     * read: it answers "who owes the most" without scanning.
+     */
+    orderBy: [{ amountMinor: 'desc' }, { userId: 'asc' }],
     include: { user: { select: { id: true, name: true, avatarUrl: true, status: true } } }
   },
   alerts: {

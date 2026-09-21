@@ -1,6 +1,10 @@
 package com.snaptab.app.ui.screen.personal
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,9 +18,13 @@ import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,6 +59,10 @@ fun MonthlyScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val summary = state.summary
+
+    // Which category is highlighted, in the chart and in the list at once. Held here
+    // rather than in either one so they cannot disagree.
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -255,8 +267,45 @@ fun MonthlyScreen(
                     )
                 }
             } else {
+                item {
+                    SnapCard {
+                        SectionLabel(text = stringResource(R.string.where_it_went))
+                        Spacer(Modifier.height(4.dp))
+                        DonutChart(
+                            slices = buckets.map { bucket ->
+                                DonutSlice(
+                                    id = bucket.slug,
+                                    label = bucket.name,
+                                    value = bucket.spentMinor,
+                                    color = categoryColors(bucket.slug).fg
+                                )
+                            },
+                            centerLabel = stringResource(R.string.total_spent),
+                            centerValue = Money.formatCompact(
+                                summary?.spentMinor ?: 0,
+                                summary?.currency ?: "INR"
+                            ),
+                            modifier = Modifier.padding(horizontal = 28.dp),
+                            selectedId = selectedCategory,
+                            onSelect = { selectedCategory = it },
+                            formatSliceValue = { slice ->
+                                Money.formatCompact(slice.value, summary?.currency ?: "INR")
+                            }
+                        )
+                    }
+                }
                 items(buckets, key = { it.slug }) { bucket ->
-                    CategoryRow(bucket = bucket, currency = summary?.currency ?: "INR")
+                    CategoryRow(
+                        bucket = bucket,
+                        currency = summary?.currency ?: "INR",
+                        // Tapping a row and tapping its segment are the same selection, so
+                        // the chart and the list can never disagree about what is highlighted.
+                        selected = bucket.slug == selectedCategory,
+                        dimmed = selectedCategory != null && bucket.slug != selectedCategory,
+                        onClick = {
+                            selectedCategory = if (selectedCategory == bucket.slug) null else bucket.slug
+                        }
+                    )
                 }
             }
 
@@ -384,9 +433,38 @@ private fun SplitLegend(
 }
 
 @Composable
-private fun CategoryRow(bucket: CategorySpendDto, currency: String) {
+private fun CategoryRow(
+    bucket: CategorySpendDto,
+    currency: String,
+    selected: Boolean = false,
+    dimmed: Boolean = false,
+    onClick: () -> Unit = {}
+) {
     val colors = categoryColors(bucket.slug)
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    // A row recedes when something else is selected, matching what the chart does to the
+    // segments, and animates rather than blinking between the two states.
+    val alpha by animateFloatAsState(
+        targetValue = if (dimmed) 0.45f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "category-row-alpha"
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.02f else 1f,
+        animationSpec = spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow),
+        label = "category-row-scale"
+    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .graphicsLayer {
+                this.alpha = alpha
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 2.dp)
+    ) {
         Box(
             modifier = Modifier
                 .size(34.dp)
