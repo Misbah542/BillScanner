@@ -3,6 +3,7 @@ package com.snaptab.app.ui.screen.personal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snaptab.app.core.ApiResult
+import com.snaptab.app.core.onSuccess
 import com.snaptab.app.core.Money
 import com.snaptab.app.data.local.CategoryEntity
 import com.snaptab.app.data.local.GroupEntity
