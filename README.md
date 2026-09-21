@@ -114,6 +114,7 @@ Run these from the repository root.
 | `npm run sync:assets` | Copies `packages/shared/data/*.json` into the app's assets. Run it after editing a rule file. |
 | `npm run android:assemble` | `./gradlew assembleDebug` for both flavours. |
 | `npm run android:test` | The Android JVM unit tests. |
+| `npm run android:release` | `./gradlew assembleDemoRelease` — the minified build, no signing key needed. |
 | `npm run docker:up` / `docker:down` | The full stack, API included. |
 
 ## Tests
@@ -163,15 +164,26 @@ The reasoning behind each of these is in [docs/ARCHITECTURE.md](docs/ARCHITECTUR
 
 `.github/workflows/ci.yml` runs on every push: a hygiene job that fails if an env
 file, key or keystore has been committed, then the shared and API suites against a
-throwaway Postgres, then the Android unit tests, lint and a demo APK you can
-download from the run's artifacts.
+throwaway Postgres, then the Android unit tests, lint, and both a debug and a minified
+release APK you can download from the run's artifacts. The release one is there
+because R8 only runs in release, and a missing keep rule does not fail a build — it
+produces an app that installs and then breaks on its first API call.
 
-**CI needs no secrets, and nothing secret is in this repository.** The only env
-files committed are `apps/api/.env.example` and `apps/api/.env.test`, both
-placeholders. Real values belong to the environment that runs the code — and, for
-CI, to `Settings → Secrets and variables → Actions`. [docs/CI.md](docs/CI.md) has
-the table of what would need one, and what is safe about the demo APK before you
-post it anywhere.
+`.github/workflows/release.yml` builds a **signed** release on demand or from a `v*`
+tag, choosing flavour (`demo` or `live`) and artifact (APK or AAB). It is the only
+workflow that touches secrets.
+
+**This repository is public and holds nothing secret.** The only committed
+configuration files are `apps/api/.env.example`, `apps/api/.env.test.example` and
+`apps/android/local.properties.example` — templates with placeholder values, which a
+new checkout copies and fills in. No `.env`, no `local.properties`, no keystore and no
+`google-services.json`, and the `hygiene` job fails the build if one ever appears.
+
+Real values belong to the environment that runs the code, and for CI to
+`Settings → Secrets and variables → Actions`. [docs/CI.md](docs/CI.md) lists every
+committed file that holds configuration and exactly what is in it, which secrets
+exist and what each is for, and what is safe about the demo APK before you post it
+anywhere.
 
 ## Where things are
 

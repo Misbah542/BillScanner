@@ -100,6 +100,14 @@ jobs:
       - name: Build the shared package
         run: npm run build --workspace @snaptab/shared
 
+      - name: Generate the Prisma client
+        # Before the typecheck, not after. `@prisma/client` ships as a stub whose
+        # types are written by `prisma generate` from schema.prisma; until that has
+        # run, every Prisma.<Model>Select and every transaction callback parameter is
+        # missing or untyped, and tsc reports ~60 errors that have nothing to do with
+        # the code. This is the step whose absence produced exactly that.
+        run: npm run db:generate --workspace @snaptab/api
+
       - name: Shared rule files are in sync with the app's assets
         run: |
           set -euo pipefail
@@ -115,8 +123,8 @@ jobs:
 
       - run: npm run typecheck
 
-      - name: Apply the schema
-        run: npm run db:generate && npx prisma migrate deploy
+      - name: Apply the migrations
+        run: npx prisma migrate deploy
         working-directory: apps/api
 
       - name: Shared tests
@@ -147,6 +155,13 @@ jobs:
         run: npm ci && npm run sync:assets
 
       - uses: android-actions/setup-android@v3
+        with:
+          # The action defaults to installing `tools platform-tools`, and Google
+          # removed the obsolete `tools` package from its repository, so the default
+          # fails with "Failed to find package 'tools'" before anything is built.
+          # Naming what the build actually needs avoids it: compileSdk 35, and the
+          # build-tools version AGP 8.7.3 pins.
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -172,6 +187,24 @@ jobs:
           # every screen is served by the in-memory fake API, and the flavour has no
           # SMS permissions in its manifest.
           path: apps/android/app/build/outputs/apk/demo/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # The release variant is where R8 runs, and R8 is where a missing keep rule
+      # turns into an APK that installs and then fails on its first API call. Building
+      # the demo release exercises the whole shrink-and-obfuscate path on every push,
+      # and needs no signing key and no API address to do it.
+      - name: Build the demo release APK (exercises R8)
+        run: ./gradlew assembleDemoRelease
+        working-directory: apps/android
+
+      - name: Upload the demo release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: snaptab-demo-release-unsigned
+          # Unsigned, so it cannot be installed — it is here to be inspected, and as
+          # proof the minified build works. Sign a release before handing it out.
+          path: apps/android/app/build/outputs/apk/demo/release/*.apk
           if-no-files-found: error
           retention-days: 30
 

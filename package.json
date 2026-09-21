@@ -28,6 +28,7 @@
     "sync:assets": "node scripts/sync-shared-assets.mjs",
     "android:assemble": "cd apps/android && ./gradlew assembleDebug",
     "android:test": "cd apps/android && ./gradlew testDebugUnitTest",
+    "android:release": "cd apps/android && ./gradlew assembleDemoRelease",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"
   },

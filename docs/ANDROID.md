@@ -7,6 +7,7 @@ assets.
 
 - [Building it](#building-it)
 - [Demo flavour](#demo-flavour)
+- [Release builds](#release-builds)
 - [Screens](#screens)
 - [Layout](#layout)
 - [Stack](#stack)
@@ -28,6 +29,11 @@ cd apps/android
 ./gradlew installLiveDebug      # the real app, against your API
 ./gradlew installDemoDebug      # the fake one, no server needed
 ```
+
+Four variants, from two flavours × two build types: `demoDebug`, `demoRelease`,
+`liveDebug`, `liveRelease`. Debug is what you develop against; release is what you
+hand out, and it is a different enough build that it needs its own
+[section](#release-builds).
 
 `snaptab.apiBaseUrl` in `local.properties` points the app at your API and defaults
 to `http://10.0.2.2:4000/`, which is the host machine as seen from the emulator.
@@ -54,6 +60,7 @@ Two product flavours on the `backend` dimension:
 | Label | SnapTab Demo | SnapTab |
 | Icon | clay | teal |
 | SMS permissions | removed from the manifest | requested when you enable the feature |
+| Release needs | nothing configured | an API address and a signing key |
 
 The demo exists so the UI could be built and reviewed before the backend was
 deployed, and it is now the build to hand to someone who just wants to see the app.
@@ -82,6 +89,74 @@ in its inbox are sample data, and the settings screen says so in place of the
 toggles (`BuildFlags.smsReadingAvailable` is the single flag that decides).
 
 See [CI.md](CI.md#getting-the-demo-apk) for downloading a demo APK that CI built.
+
+## Release builds
+
+`release` is not `debug` with a different name. It runs R8, which shrinks, optimises
+and obfuscates, and it is the only build where a missing keep rule can turn into a
+runtime failure. So test a release build before handing one out, and test the release
+build — not the debug one — after touching `proguard-rules.pro`.
+
+```bash
+cd apps/android
+./gradlew assembleDemoRelease   # needs nothing configured
+./gradlew assembleLiveRelease   # needs the two settings below
+./gradlew bundleLiveRelease     # an AAB, for the Play Store
+```
+
+**A live release needs two things, neither in the repository.**
+
+*Where it points.* There is deliberately no default. It used to default to
+`https://api.snaptab.app/`, a domain nobody here owns — and an APK is trivially
+decompiled, so that address reaches everyone who downloads one, meaning whoever
+registers the domain first receives the sign-in traffic of every install. The build
+now fails with a message telling you to set it:
+
+```properties
+snaptab.apiBaseUrl.release=https://api.yourdomain.com/
+```
+
+It must be `https`, because the release network config permits no cleartext at all.
+`assembleDemoRelease` needs none of this; it reaches no network.
+
+*A signing key.* `keytool -genkeypair -v -keystore ~/snaptab-release.jks -alias
+snaptab -keyalg RSA -keysize 4096 -validity 10000`, then point `local.properties` at
+it (`snaptab.keystorePath` and the three passwords) or set the `ANDROID_KEYSTORE_*`
+environment variables. With nothing configured the release is **unsigned**, which
+still proves R8 has not broken anything but will not install. That is on purpose:
+falling back to the debug key would produce an installable APK signed with a
+certificate every Android developer already has the private key for, which is worse
+than one that will not install.
+
+Full walkthrough, including the CI workflow that builds a signed release from
+repository secrets, is in [CI.md](CI.md#building-a-release).
+
+### proguard-rules.pro
+
+Worth reading before you change it, because the failure mode is quiet. The
+prototype's version kept a `data.model` package that no longer exists, carried Gson
+rules for an app that uses kotlinx-serialization, and had **no serialization keep
+rules at all**. The result would have compiled, installed, and then failed to
+deserialise every single API response — and because R8 only runs in release, no
+amount of debug testing would have shown it.
+
+What is kept now, and why:
+
+| Kept | Why |
+| --- | --- |
+| `@Serializable` companions and `$$serializer` classes | Retrofit finds them reflectively through the converter, so R8 cannot see the use |
+| `data.remote.dto.**`, `data.sms.**` | the wire DTOs and the SMS rule table parsed from assets |
+| `SnapTabApi` method signatures | Retrofit reads each suspend function's generic return type |
+| `data.local.**` | Room reflects over entity fields |
+| `work.**` | WorkManager constructs workers from a class name string |
+| `SourceFile`, `LineNumberTable` | so a stack trace from a minified build is readable |
+
+Retrofit, OkHttp, Room and Hilt all ship their own consumer rules, so nothing else
+needs keeping by hand.
+
+**Keep `mapping.txt`.** `app/build/outputs/mapping/<variant>/mapping.txt` is the only
+way to read a stack trace from an obfuscated build, it is different for every build,
+and it cannot be regenerated.
 
 ## Screens
 

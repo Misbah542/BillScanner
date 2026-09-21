@@ -14,3 +14,26 @@ snaptab.apiBaseUrl=http://10.0.2.2:4000/
 # (type: Android, with this app's package name and signing certificate SHA-1).
 # Leave blank and the sign-in screen simply does not offer Google.
 snaptab.googleClientId=
+
+# ---- release builds only ----
+# Where a RELEASE build points. There is no default on purpose: an APK is trivially
+# decompiled, so a hardcoded address ships to everyone who downloads one, and a
+# default pointing at a domain you do not own would hand your users' sign-in traffic
+# to whoever registers it. A live release build fails until this is set, and it must
+# be https. `./gradlew assembleDemoRelease` needs none of this — it reaches no
+# network at all.
+# snaptab.apiBaseUrl.release=https://api.yourdomain.com/
+
+# Release signing. Generate a keystore once and keep it somewhere that is neither
+# this repository nor only your laptop — lose it and you can never publish an update
+# to this app again:
+#
+#   keytool -genkeypair -v -keystore ~/snaptab-release.jks \
+#     -alias snaptab -keyalg RSA -keysize 4096 -validity 10000
+#
+# Leave these unset and a release build is simply unsigned, which still checks that
+# R8 has not broken anything. It will not install.
+# snaptab.keystorePath=/Users/you/snaptab-release.jks
+# snaptab.keystorePassword=
+# snaptab.keyAlias=snaptab
+# snaptab.keyPassword=

@@ -23,6 +23,50 @@ val localProperties = Properties().apply {
 fun localOr(key: String, fallback: String): String =
     (localProperties.getProperty(key) ?: System.getenv(key) ?: fallback)
 
+/**
+ * A signing credential, from local.properties on a developer's machine or from the
+ * environment in CI. The two use different names — dotted Gradle properties locally,
+ * SHOUTING_CASE variables in a workflow — so both are named explicitly rather than
+ * guessed at.
+ */
+fun signingOr(propertyKey: String, envKey: String): String =
+    (localProperties.getProperty(propertyKey) ?: System.getenv(envKey) ?: "")
+
+/**
+ * The API a release build talks to. There is deliberately no default.
+ *
+ * It used to default to `https://api.snaptab.app/`, a domain nobody here owns. An APK
+ * is trivially decompiled, so that address is visible to anyone who downloads one —
+ * and whoever registers the domain first receives the sign-in traffic of every
+ * install. A build that refuses to produce such an APK is worth more than a
+ * convenient default.
+ *
+ * So a live release has to say where it is pointing:
+ *
+ *   snaptab.apiBaseUrl.release=https://api.yourdomain.com/    in local.properties
+ *
+ * The check is scoped to the tasks that actually build one, so `assembleDemoRelease`
+ * (which reaches no network at all) and every debug build stay unaffected.
+ */
+val releaseBaseUrl: String = signingOr("snaptab.apiBaseUrl.release", "ANDROID_RELEASE_API_BASE_URL")
+
+if (gradle.startParameter.taskNames.any { it.contains("liveRelease", ignoreCase = true) }) {
+    check(releaseBaseUrl.startsWith("https://")) {
+        """
+        snaptab.apiBaseUrl.release is not set, so this release APK would have no API to
+        talk to — or worse, a hardcoded address on a domain you do not control.
+
+        Add it to apps/android/local.properties:
+            snaptab.apiBaseUrl.release=https://api.yourdomain.com/
+
+        Or set ANDROID_RELEASE_API_BASE_URL in the environment. It must be https.
+
+        To build something installable with no server at all, build the demo instead:
+            ./gradlew assembleDemoRelease
+        """.trimIndent()
+    }
+}
+
 android {
     namespace = "com.snaptab.app"
     compileSdk = 35
@@ -70,6 +114,38 @@ android {
         }
     }
 
+    /**
+     * Release signing, from the environment rather than from a file in the repository.
+     *
+     * A keystore is the one secret that cannot be rotated: lose it and you can never
+     * publish an update to that app again, and leak it and someone else can publish
+     * one that Android will accept as yours. So it is never committed, and neither are
+     * its passwords — CI decodes it from a secret into a temporary file, and a local
+     * release build reads it from local.properties, which is git-ignored.
+     *
+     * When nothing is configured, this stays null and the release build is simply
+     * unsigned, so `assembleLiveRelease` still works for checking that R8 has not
+     * broken anything. An unsigned APK cannot be installed; see docs/CI.md.
+     */
+    val releaseStore = (System.getenv("ANDROID_KEYSTORE_PATH")
+        ?: localProperties.getProperty("snaptab.keystorePath"))
+        ?.let { rootProject.file(it) }
+        ?.takeIf { it.exists() }
+
+    signingConfigs {
+        create("release") {
+            if (releaseStore != null) {
+                storeFile = releaseStore
+                storePassword = signingOr("snaptab.keystorePassword", "ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = signingOr("snaptab.keyAlias", "ANDROID_KEY_ALIAS")
+                keyPassword = signingOr("snaptab.keyPassword", "ANDROID_KEY_PASSWORD")
+                enableV1Signing = false   // minSdk 26 needs no JAR signature
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -79,11 +155,18 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            isDebuggable = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+
+            // Null rather than the debug key when no keystore is configured. Falling
+            // back to the debug key would produce an installable APK signed with a
+            // certificate every Android developer on earth already has the private key
+            // for, which is worse than one that will not install.
+            signingConfig = if (releaseStore != null) signingConfigs.getByName("release") else null
 
             // Cleartext HTTP is allowed in debug so a local API works; release is
             // HTTPS only, enforced by the network security config.
-            buildConfigField("String", "API_BASE_URL", "\"${localOr("snaptab.apiBaseUrl.release", "https://api.snaptab.app/")}\"")
+            buildConfigField("String", "API_BASE_URL", "\"$releaseBaseUrl\"")
         }
     }
 
