@@ -69,7 +69,12 @@ fun InboxScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        // The four tab screens have no TopAppBar of their own, and the outer Scaffold
+        // reserves space for the bottom bar only — so without this the first row sits
+        // under the status bar. Screens that own a Scaffold get the inset from it.
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {

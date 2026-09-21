@@ -8,6 +8,8 @@ import com.snaptab.app.data.repository.*
 import com.snaptab.app.data.remote.dto.BalanceDto
 import com.snaptab.app.data.remote.dto.MonthlySummaryDto
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.YearMonth
@@ -28,6 +30,8 @@ data class HomeUiState(
     val unmatchedAlerts: Int = 0,
     val pendingAlerts: Int = 0,
     val refreshing: Boolean = false,
+    /** True until the first summary has arrived, whatever it turns out to say. */
+    val loadingSummary: Boolean = true,
     val error: String? = null,
     val offline: Boolean = false
 ) {
@@ -49,6 +53,7 @@ class HomeViewModel @Inject constructor(
     private data class TransientState(
         val balance: BalanceDto? = null,
         val refreshing: Boolean = false,
+        val loadedOnce: Boolean = false,
         val error: String? = null,
         val offline: Boolean = false
     )
@@ -72,6 +77,9 @@ class HomeViewModel @Inject constructor(
             unmatchedAlerts = unmatched,
             pendingAlerts = pending,
             refreshing = extra.refreshing,
+            // A null summary before the first load means "not known yet"; after it, the
+            // month genuinely has nothing in it. The card must not show zero for the first.
+            loadingSummary = summary == null && !extra.loadedOnce,
             error = extra.error,
             offline = extra.offline
         )
@@ -83,30 +91,61 @@ class HomeViewModel @Inject constructor(
 
     fun setLens(next: SpendLens) {
         lens.value = next
-        // Each lens is a different server-side figure, so fetch the one being shown.
+        // The cached figure for this lens is already on screen by the time this runs — the
+        // first refresh prefetched all three — so this only corrects a stale one.
         viewModelScope.launch {
-            insights.refreshMonthly(kind = next.wire)
-            expenses.refresh(next.filter)
+            coroutineScope {
+                launch { insights.refreshMonthly(kind = next.wire) }
+                launch { expenses.refresh(next.filter) }
+            }
         }
     }
 
+    /**
+     * One round trip's worth of latency, not six.
+     *
+     * These calls were awaited one after another, which put the headline spend figure
+     * second in the queue and the balance third. Against a real API that is a second and
+     * a half of a screen showing zero, and zero is indistinguishable from an answer — the
+     * card looked like it had loaded and decided the month was empty. Nothing here depends
+     * on anything else finishing, with one exception noted below, so it all goes at once.
+     */
     fun refresh() {
         viewModelScope.launch {
             transient.update { it.copy(refreshing = true, error = null) }
-
             val current = lens.value
-            val expenseResult = expenses.refresh(current.filter)
-            insights.refreshMonthly(kind = current.wire)
-            val balanceResult = settlements.balance()
-            alerts.refresh()
-            categories.refresh()
-            // Anything the SMS receiver queued while offline goes up now.
-            alerts.syncPending()
+
+            // coroutineScope returns the two results that are reported, rather than
+            // assigning outer vals — it is not an inline function, so a lambda cannot
+            // write to them.
+            val (expenseResult, balanceResult) = coroutineScope {
+                val expenseJob = async { expenses.refresh(current.filter) }
+                val balanceJob = async { settlements.balance() }
+                // The lens on screen first, then the other two, so switching a lens later
+                // reads from cache instead of waiting on the network again.
+                val summaryJobs = SpendLens.entries
+                    .sortedByDescending { it == current }
+                    .map { lensToFetch -> async { insights.refreshMonthly(kind = lensToFetch.wire) } }
+                val alertJob = async {
+                    // The one ordering that matters: anything the SMS receiver queued while
+                    // offline has to go up before the list is re-read, or the alerts it
+                    // creates are missing from what comes back.
+                    alerts.syncPending()
+                    alerts.refresh()
+                }
+                val categoryJob = async { categories.refresh() }
+
+                summaryJobs.forEach { it.await() }
+                alertJob.await()
+                categoryJob.await()
+                expenseJob.await() to balanceJob.await()
+            }
 
             val failure = (expenseResult as? ApiResult.Failure) ?: (balanceResult as? ApiResult.Failure)
             transient.update {
                 it.copy(
                     refreshing = false,
+                    loadedOnce = true,
                     balance = balanceResult.successOrNull ?: it.balance,
                     // Offline is not an error worth a red banner when the cache has content;
                     // it is reported quietly instead.

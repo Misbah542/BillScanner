@@ -275,6 +275,8 @@
     <string name="left_your_account">Left your account this month</string>
     <string name="loan_explainer">%1$s of that was other people’s shares you fronted. That is a loan, not spending, so it is not counted above.</string>
     <string name="where_it_went">Where it went</string>
+    <!-- The centre of the donut chart, when no segment is selected. -->
+    <string name="total_spent">Total spent</string>
     <string name="six_months">Six months</string>
     <string name="previous_month">Previous month</string>
     <string name="next_month">Next month</string>
