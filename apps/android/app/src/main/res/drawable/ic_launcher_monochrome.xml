@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The themed-icon layer for Android 13+, where the launcher recolours the icon to
+  the wallpaper. Only the alpha channel is read, so the fill colour is arbitrary;
+  what matters is that this is the same silhouette as the foreground, tear included.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#000000" android:pathData="M43,26 h22 a5,5 0 0 1 5,5 V41 L38,55 V31 a5,5 0 0 1 5,-5 z" />
+    <path android:fillColor="#000000" android:pathData="M70,47 V78 l-4,4 l-4,-4 l-4,4 l-4,-4 l-4,4 l-4,-4 l-4,4 l-4,-4 V61 z" />
+</vector>

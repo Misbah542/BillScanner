@@ -1,0 +1,176 @@
+{
+  "version": 2,
+  "note": "Shared category taxonomy. The API seeds Postgres from this file and the Android app bundles it as an asset, so both sides agree on slugs, colours and keywords. Colours are tuned for the SnapTab palette in both light and dark themes.",
+  "categories": [
+    {
+      "slug": "restaurant",
+      "name": "Restaurants",
+      "icon": "cutlery",
+      "color": "#B4502A",
+      "tintLight": "#F7E7DE",
+      "kind": "SPEND",
+      "keywords": ["restaurant", "cafe", "coffee", "bar", "pub", "brewery", "kitchen", "diner", "bistro", "dhaba", "biryani", "pizza", "burger", "barbeque", "bbq", "food", "eatery", "swiggy", "zomato", "dominos", "mcdonald", "kfc", "starbucks", "chaayos", "social offline", "sagar ratna", "haldiram", "eazydiner", "dineout", "bakery", "patisserie", "ice cream", "juice"],
+      "itemKeywords": ["service charge", "liit", "mocktail", "cocktail", "beer", "latte", "cappuccino", "biryani", "paneer", "chicken", "starter", "dessert", "thali", "roti", "naan", "pitcher", "bottled water", "aerated beverage"]
+    },
+    {
+      "slug": "groceries",
+      "name": "Groceries",
+      "icon": "basket",
+      "color": "#4A6B14",
+      "tintLight": "#EDF1DF",
+      "kind": "SPEND",
+      "keywords": ["grocery", "groceries", "supermarket", "hypermarket", "kirana", "mart", "bigbasket", "blinkit", "zepto", "instamart", "dmart", "d-mart", "reliance fresh", "more retail", "spencer", "nature's basket", "licious", "milkbasket", "country delight", "vegetable", "provision"],
+      "itemKeywords": ["atta", "rice", "dal", "toor", "milk", "curd", "paneer", "eggs", "bread", "onion", "tomato", "potato", "sugar", "salt", "oil", "detergent", "soap", "shampoo", "toothpaste"]
+    },
+    {
+      "slug": "shopping",
+      "name": "Shopping",
+      "icon": "bag",
+      "color": "#6B3FA0",
+      "tintLight": "#EEE7F7",
+      "kind": "SPEND",
+      "keywords": ["shopping", "retail", "store", "mall", "amazon", "flipkart", "myntra", "ajio", "nykaa", "zudio", "westside", "lifestyle", "shoppers stop", "pantaloons", "max fashion", "decathlon", "croma", "reliance digital", "vijay sales", "ikea", "pepperfry", "urban ladder", "meesho", "tatacliq", "apparel", "footwear", "electronics"],
+      "itemKeywords": ["t-shirt", "shirt", "jeans", "trouser", "dress", "kurta", "shoes", "sneaker", "handbag", "charger", "headphone", "cable", "case", "laptop", "monitor"]
+    },
+    {
+      "slug": "travel",
+      "name": "Travel & transport",
+      "icon": "plane",
+      "color": "#1E5F8A",
+      "tintLight": "#E2EDF5",
+      "kind": "SPEND",
+      "keywords": ["uber", "ola", "rapido", "namma yatri", "taxi", "cab", "auto", "metro", "irctc", "railway", "indigo", "air india", "vistara", "spicejet", "akasa", "emirates", "makemytrip", "goibibo", "cleartrip", "yatra", "ixigo", "redbus", "abhibus", "airbnb", "oyo", "hotel", "resort", "lodge", "hostel", "toll", "fastag", "parking", "booking.com", "agoda"],
+      "itemKeywords": ["fare", "base fare", "surge", "toll", "airport", "baggage", "seat", "room night", "convenience fee"]
+    },
+    {
+      "slug": "fuel",
+      "name": "Fuel",
+      "icon": "fuel",
+      "color": "#8A5A00",
+      "tintLight": "#F7EEDC",
+      "kind": "SPEND",
+      "keywords": ["petrol", "diesel", "fuel", "filling station", "indian oil", "iocl", "bharat petroleum", "bpcl", "hindustan petroleum", "hpcl", "shell", "nayara", "reliance petro", "cng", "charging station", "statiq", "tata power ez"],
+      "itemKeywords": ["petrol", "diesel", "xtrapremium", "speed", "power petrol", "cng", "kwh"]
+    },
+    {
+      "slug": "utilities",
+      "name": "Bills & utilities",
+      "icon": "bolt",
+      "color": "#0F6B5C",
+      "tintLight": "#E3EEEA",
+      "kind": "SPEND",
+      "keywords": ["electricity", "power bill", "bescom", "mseb", "adani electricity", "tata power", "torrent power", "water bill", "gas bill", "indane", "hp gas", "bharat gas", "broadband", "fibernet", "act fibernet", "jiofiber", "airtel", "vodafone", "vi ", "bsnl", "jio", "recharge", "postpaid", "prepaid", "dth", "tata play", "d2h", "maintenance", "society charges", "municipal"],
+      "itemKeywords": ["units consumed", "fixed charge", "energy charge", "data plan", "talktime", "rental", "arrears"]
+    },
+    {
+      "slug": "entertainment",
+      "name": "Entertainment",
+      "icon": "ticket",
+      "color": "#A03F6B",
+      "tintLight": "#F7E3EC",
+      "kind": "SPEND",
+      "keywords": ["bookmyshow", "pvr", "inox", "cinepolis", "cinema", "movie", "multiplex", "concert", "gig", "event", "zomaland", "sunburn", "theatre", "bowling", "gaming", "playstation", "steam", "xbox", "smaaash", "amusement", "water park", "zoo", "museum"],
+      "itemKeywords": ["ticket", "convenience fee", "popcorn", "gold class", "recliner"]
+    },
+    {
+      "slug": "subscriptions",
+      "name": "Subscriptions",
+      "icon": "repeat",
+      "color": "#3F5FA0",
+      "tintLight": "#E5E9F7",
+      "kind": "SPEND",
+      "keywords": ["netflix", "spotify", "prime video", "amazon prime", "hotstar", "jiocinema", "sonyliv", "zee5", "youtube premium", "apple", "icloud", "google one", "adobe", "microsoft 365", "office 365", "canva", "notion", "figma", "github", "openai", "anthropic", "claude", "chatgpt", "subscription", "renewal", "autopay", "mandate"],
+      "itemKeywords": ["monthly plan", "annual plan", "renewal", "seat", "licence", "license"]
+    },
+    {
+      "slug": "health",
+      "name": "Health",
+      "icon": "cross",
+      "color": "#8A2B3F",
+      "tintLight": "#F7E1E5",
+      "kind": "SPEND",
+      "keywords": ["pharmacy", "chemist", "apollo", "medplus", "netmeds", "1mg", "pharmeasy", "hospital", "clinic", "diagnostic", "pathology", "lab", "thyrocare", "dr lal", "metropolis", "doctor", "dental", "optical", "lenskart", "physio", "gym", "cult.fit", "fitness", "yoga"],
+      "itemKeywords": ["tablet", "capsule", "syrup", "consultation", "test", "cbc", "x-ray", "mri", "session", "membership"]
+    },
+    {
+      "slug": "rent",
+      "name": "Rent & housing",
+      "icon": "home",
+      "color": "#6B5A2B",
+      "tintLight": "#F2ECDC",
+      "kind": "SPEND",
+      "keywords": ["rent", "landlord", "nobroker", "housing.com", "magicbricks", "brokerage", "security deposit", "lease", "pg ", "hostel fee", "society", "flat maintenance"],
+      "itemKeywords": ["monthly rent", "deposit", "brokerage", "maintenance"]
+    },
+    {
+      "slug": "education",
+      "name": "Education",
+      "icon": "book",
+      "color": "#2B6B6B",
+      "tintLight": "#E0EFEF",
+      "kind": "SPEND",
+      "keywords": ["school", "college", "university", "tuition", "coaching", "byju", "unacademy", "vedantu", "physics wallah", "udemy", "coursera", "edx", "upgrad", "great learning", "exam fee", "admission", "library", "stationery", "book store", "crossword"],
+      "itemKeywords": ["tuition fee", "semester", "exam fee", "course", "textbook", "notebook"]
+    },
+    {
+      "slug": "personal_care",
+      "name": "Personal care",
+      "icon": "scissors",
+      "color": "#8A5A6B",
+      "tintLight": "#F5E6EA",
+      "kind": "SPEND",
+      "keywords": ["salon", "barber", "spa", "parlour", "parlor", "urban company", "urbanclap", "naturals", "lakme", "bodycraft", "grooming", "tattoo", "laundry", "dry clean"],
+      "itemKeywords": ["haircut", "shave", "facial", "massage", "manicure", "pedicure", "wash and fold"]
+    },
+    {
+      "slug": "gifts",
+      "name": "Gifts & donations",
+      "icon": "gift",
+      "color": "#A0533F",
+      "tintLight": "#F7E6E0",
+      "kind": "SPEND",
+      "keywords": ["gift", "ferns and petals", "fnp", "igp", "archies", "donation", "charity", "ngo", "give india", "cry", "temple", "trust", "relief fund"],
+      "itemKeywords": ["bouquet", "cake", "greeting card", "hamper", "donation"]
+    },
+    {
+      "slug": "fees",
+      "name": "Fees & charges",
+      "icon": "percent",
+      "color": "#7A5B0F",
+      "tintLight": "#F6EEDB",
+      "kind": "SPEND",
+      "keywords": ["annual fee", "late fee", "penalty", "gst on", "service tax", "atm charge", "sms charge", "amc ", "convenience fee", "processing fee", "interest charged", "finance charge", "overlimit", "bounce", "ecs return"],
+      "itemKeywords": ["fee", "charge", "penalty", "interest", "gst"]
+    },
+    {
+      "slug": "income",
+      "name": "Income",
+      "icon": "arrow-down-circle",
+      "color": "#0F6B5C",
+      "tintLight": "#E3EEEA",
+      "kind": "INCOME",
+      "keywords": ["salary", "sal cr", "neft cr", "imps cr", "payroll", "stipend", "bonus", "reimbursement", "refund", "cashback", "interest credited", "dividend", "maturity", "redemption"],
+      "itemKeywords": []
+    },
+    {
+      "slug": "transfer",
+      "name": "Transfers",
+      "icon": "arrows",
+      "color": "#5C574F",
+      "tintLight": "#F0EBE0",
+      "kind": "TRANSFER",
+      "keywords": ["self transfer", "own account", "to wallet", "paytm wallet", "amazon pay balance", "credit card payment", "cc payment", "card bill paid", "loan emi", "emi debited", "sip", "mutual fund", "zerodha", "groww", "upstox", "kite", "investment", "rd installment", "fd booked", "ppf"],
+      "itemKeywords": []
+    },
+    {
+      "slug": "other",
+      "name": "Uncategorised",
+      "icon": "dots",
+      "color": "#8C867B",
+      "tintLight": "#F0EBE0",
+      "kind": "SPEND",
+      "keywords": [],
+      "itemKeywords": []
+    }
+  ]
+}

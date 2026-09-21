@@ -1,0 +1,39 @@
+## Copy to local.properties (git-ignored) and fill in your own values.
+## Nothing here is committed, and every key has a working default except sdk.dir.
+
+# Where your Android SDK lives. Android Studio writes this for you on first sync.
+sdk.dir=/Users/you/Library/Android/sdk
+
+# Base URL of the SnapTab API, trailing slash included.
+#   10.0.2.2  is the host machine as seen from the Android emulator
+#   localhost inside the emulator is the emulator itself, not your Mac
+# Defaults to http://10.0.2.2:4000/ when unset.
+snaptab.apiBaseUrl=http://10.0.2.2:4000/
+
+# OAuth client id for Google sign-in, from the Google Cloud console
+# (type: Android, with this app's package name and signing certificate SHA-1).
+# Leave blank and the sign-in screen simply does not offer Google.
+snaptab.googleClientId=
+
+# ---- release builds only ----
+# Where a RELEASE build points. There is no default on purpose: an APK is trivially
+# decompiled, so a hardcoded address ships to everyone who downloads one, and a
+# default pointing at a domain you do not own would hand your users' sign-in traffic
+# to whoever registers it. A live release build fails until this is set, and it must
+# be https. `./gradlew assembleDemoRelease` needs none of this — it reaches no
+# network at all.
+# snaptab.apiBaseUrl.release=https://api.yourdomain.com/
+
+# Release signing. Generate a keystore once and keep it somewhere that is neither
+# this repository nor only your laptop — lose it and you can never publish an update
+# to this app again:
+#
+#   keytool -genkeypair -v -keystore ~/snaptab-release.jks \
+#     -alias snaptab -keyalg RSA -keysize 4096 -validity 10000
+#
+# Leave these unset and a release build is simply unsigned, which still checks that
+# R8 has not broken anything. It will not install.
+# snaptab.keystorePath=/Users/you/snaptab-release.jks
+# snaptab.keystorePassword=
+# snaptab.keyAlias=snaptab
+# snaptab.keyPassword=

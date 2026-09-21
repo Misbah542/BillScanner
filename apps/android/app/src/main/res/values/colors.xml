@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The SnapTab palette: a warm paper ground rather than grey, one deep teal that
+  carries "money coming to you", and one clay that carries "money you owe". The
+  two accents share chroma and lightness so they sit together without shouting.
+
+  The Compose theme is the source of truth (ui/theme/Color.kt); these exist for the
+  XML themes that draw the window before Compose starts.
+-->
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <color name="paper">#FFF6F3EC</color>
+    <color name="paper_dark">#FF141310</color>
+    <color name="ink">#FF161412</color>
+    <color name="ink_inverse">#FFF6F3EC</color>
+
+    <color name="teal">#FF0F6B5C</color>
+    <color name="teal_dark">#FF0A4F43</color>
+    <color name="teal_light">#FF7FC9B8</color>
+    <color name="teal_tint">#FFE3EEEA</color>
+
+    <color name="clay">#FFB4502A</color>
+    <color name="clay_light">#FFE9A183</color>
+    <color name="clay_tint">#FFF7E7DE</color>
+
+    <color name="line">#FFE3DDD1</color>
+    <color name="muted">#FF6B655C</color>
+</resources>

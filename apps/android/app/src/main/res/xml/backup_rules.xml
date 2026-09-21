@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Referenced by the manifest. The original project pointed at this file and at
+  data_extraction_rules without either existing, which failed resource linking.
+
+  Tokens and the local cache are deliberately excluded: a restored backup must not
+  carry a live session onto another device, and the cache is re-fetched anyway.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="snaptab_tokens.xml" />
+    <exclude domain="database" path="snaptab.db" />
+    <exclude domain="database" path="snaptab.db-shm" />
+    <exclude domain="database" path="snaptab.db-wal" />
+    <exclude domain="file" path="datastore/" />
+</full-backup-content>

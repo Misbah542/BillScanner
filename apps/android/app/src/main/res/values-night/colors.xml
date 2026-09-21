@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="paper">#FF141310</color>
+    <color name="ink">#FFF6F3EC</color>
+    <color name="line">#FF322E28</color>
+    <color name="muted">#FFA39C90</color>
+    <color name="teal_tint">#FF17332C</color>
+    <color name="clay_tint">#FF3A2118</color>
+</resources>

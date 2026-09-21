@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A receipt, torn once on the diagonal.
+
+  One recognisable object and one decisive cut, and nothing else. A launcher icon is
+  looked at for a fraction of a second at 48dp, which is around 20 device pixels of
+  usable detail on a mid-range phone; line items and split marks turn to mush at
+  that size, so the meaning has to survive in the silhouette alone. Here it does —
+  the shape reads as a receipt, the gap reads as a split.
+
+  The cut is genuine negative space, two separate paths, rather than a band painted
+  in the background colour. The themed-icon layer keeps only the alpha channel, so a
+  painted-over gap would be opaque there and the tear would disappear.
+
+  Geometry: the 108dp adaptive canvas shows only its central 72dp, and only the
+  central 66dp CIRCLE survives every mask. So the artwork is 32 wide by 56 tall,
+  centred on (54,54), which puts its furthest point — the corner of a perforation
+  tooth at (42,82) — 30.5 from the centre against the 33 allowed. A round mask,
+  a squircle and a teardrop all leave it whole.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Upper piece: rounded top, sheared off along the tear. -->
+    <path
+        android:fillColor="#F6F3EC"
+        android:pathData="M43,26 h22 a5,5 0 0 1 5,5 V41 L38,55 V31 a5,5 0 0 1 5,-5 z" />
+
+    <!-- Lower piece: the tear above, the perforated edge below. -->
+    <path
+        android:fillColor="#F6F3EC"
+        android:pathData="M70,47 V78 l-4,4 l-4,-4 l-4,4 l-4,-4 l-4,4 l-4,-4 l-4,4 l-4,-4 V61 z" />
+</vector>

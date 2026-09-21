@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HTTPS only. No exceptions, no user-installed trust anchors.
+
+  The cleartext allowance a developer needs for a local API is in
+  src/debug/res/xml/network_security_config.xml, which replaces this file in debug
+  builds only. It is deliberately not here: a release APK that permits cleartext
+  to any address, loopback included, is a release APK that can be pointed at a
+  plain-HTTP server by anyone who controls the device's routing.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
