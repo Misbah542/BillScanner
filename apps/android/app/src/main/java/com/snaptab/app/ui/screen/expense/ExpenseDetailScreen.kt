@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
@@ -141,6 +142,9 @@ fun ExpenseDetailScreen(
 
     val expense = state.expense
     Scaffold(
+        // Transparent so the app-wide grid behind the NavHost shows through; a Scaffold
+        // otherwise paints an opaque `background` over it.
+        containerColor = Color.Transparent,
         bottomBar = {
             if (expense != null) {
                 Surface(color = MaterialTheme.colorScheme.surface) {

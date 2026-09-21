@@ -27,6 +27,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.snaptab.app.R
+import com.snaptab.app.ui.components.GridBackground
 import com.snaptab.app.ui.screen.auth.SignInScreen
 import com.snaptab.app.ui.screen.expense.ExpenseDetailScreen
 import com.snaptab.app.ui.screen.expense.SplitScreen
@@ -121,10 +122,15 @@ fun SnapTabNavigation(
     }
 
     if (!root.signedIn) {
-        SignInScreen(
-            onSignedIn = { /* the root state flips and this composable is replaced */ },
-            onNeedsGoogleSignIn = viewModel::onGoogleSignInRequested
-        )
+        // Sign-in returns early, before the Scaffold below, so it needs its own copy of the
+        // grid — it is the first screen anyone sees and the one that most wants the scenery.
+        Box(modifier = Modifier.fillMaxSize()) {
+            GridBackground()
+            SignInScreen(
+                onSignedIn = { /* the root state flips and this composable is replaced */ },
+                onNeedsGoogleSignIn = viewModel::onGoogleSignInRequested
+            )
+        }
         return
     }
 
@@ -164,150 +170,160 @@ fun SnapTabNavigation(
     ) { padding ->
         val tabRoutes = remember { bottomTabs.map { it.route }.toSet() }
 
-        NavHost(
-            navController = navController,
-            startDestination = Routes.HOME,
-            modifier = Modifier.padding(bottom = if (showBottomBar) padding.calculateBottomPadding() else 0.dp),
-            // Tabs cross-fade because they are siblings; anything pushed on top slides,
-            // because it is a layer above. Deciding per-transition rather than per-screen is
-            // what keeps "back" feeling like the reverse of how you arrived.
-            enterTransition = {
-                if (targetState.destination.route in tabRoutes) Motion.enterTab
-                else Motion.enterPush(this)
-            },
-            exitTransition = {
-                if (targetState.destination.route in tabRoutes) Motion.exitTab
-                else Motion.exitPush(this)
-            },
-            popEnterTransition = {
-                if (targetState.destination.route in tabRoutes) Motion.enterTab
-                else Motion.enterPop(this)
-            },
-            popExitTransition = {
-                if (targetState.destination.route in tabRoutes) Motion.exitTab
-                else Motion.exitPop(this)
-            }
-        ) {
-            composable(Routes.HOME) { entry ->
-                HomeScreen(
-                    onOpenExpense = { navController.push(entry, Routes.expense(it)) },
-                    // A tab, so it switches tabs rather than stacking a second inbox.
-                    onOpenInbox = { navController.toTab(Routes.INBOX) },
-                    onOpenProfile = { navController.push(entry, Routes.PROFILE) },
-                    onOpenMonthly = { navController.push(entry, Routes.MONTHLY) },
-                    onAddExpense = { navController.push(entry, Routes.ADD_EXPENSE) }
-                )
-            }
+        Box(modifier = Modifier.fillMaxSize()) {
+            // One grid for the whole app, drawn once here rather than per screen. It used to
+            // live inside HomeScreen, which meant it vanished the moment you opened a tab.
+            // Behind the NavHost it survives every navigation, so it never restarts its
+            // animation mid-journey and costs one Canvas rather than thirteen. The screens
+            // that own a Scaffold pass `containerColor = Color.Transparent` so their own
+            // background does not paint over it.
+            GridBackground()
 
-            composable(Routes.GROUPS) { entry ->
-                GroupsScreen(onOpenGroup = { navController.push(entry, Routes.group(it)) })
-            }
+            NavHost(
+                navController = navController,
+                startDestination = Routes.HOME,
+                modifier = Modifier.padding(bottom = if (showBottomBar) padding.calculateBottomPadding() else 0.dp),
+                // Tabs cross-fade because they are siblings; anything pushed on top slides,
+                // because it is a layer above. Deciding per-transition rather than per-screen is
+                // what keeps "back" feeling like the reverse of how you arrived.
+                enterTransition = {
+                    if (targetState.destination.route in tabRoutes) Motion.enterTab
+                    else Motion.enterPush(this)
+                },
+                exitTransition = {
+                    if (targetState.destination.route in tabRoutes) Motion.exitTab
+                    else Motion.exitPush(this)
+                },
+                popEnterTransition = {
+                    if (targetState.destination.route in tabRoutes) Motion.enterTab
+                    else Motion.enterPop(this)
+                },
+                popExitTransition = {
+                    if (targetState.destination.route in tabRoutes) Motion.exitTab
+                    else Motion.exitPop(this)
+                }
+            ) {
+                composable(Routes.HOME) { entry ->
+                    HomeScreen(
+                        onOpenExpense = { navController.push(entry, Routes.expense(it)) },
+                        // A tab, so it switches tabs rather than stacking a second inbox.
+                        onOpenInbox = { navController.toTab(Routes.INBOX) },
+                        onOpenProfile = { navController.push(entry, Routes.PROFILE) },
+                        onOpenMonthly = { navController.push(entry, Routes.MONTHLY) },
+                        onAddExpense = { navController.push(entry, Routes.ADD_EXPENSE) }
+                    )
+                }
 
-            composable(Routes.INBOX) { entry ->
-                InboxScreen(
-                    onOpenExpense = { navController.push(entry, Routes.expense(it)) },
-                    onScanForAlert = { alert -> navController.push(entry, Routes.scan(alert.id)) },
-                    onRequestSmsPermission = {
-                        smsPermission.launch(
-                            arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS)
-                        )
-                    }
-                )
-            }
+                composable(Routes.GROUPS) { entry ->
+                    GroupsScreen(onOpenGroup = { navController.push(entry, Routes.group(it)) })
+                }
 
-            composable(Routes.SETTLE) { SettleScreen() }
+                composable(Routes.INBOX) { entry ->
+                    InboxScreen(
+                        onOpenExpense = { navController.push(entry, Routes.expense(it)) },
+                        onScanForAlert = { alert -> navController.push(entry, Routes.scan(alert.id)) },
+                        onRequestSmsPermission = {
+                            smsPermission.launch(
+                                arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS)
+                            )
+                        }
+                    )
+                }
 
-            composable(
-                route = "${Routes.SCAN}?alertId={alertId}",
-                arguments = listOf(
-                    navArgument("alertId") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    }
-                )
-            ) { entry ->
-                ScanFlow(
-                    alertId = entry.arguments?.getString("alertId"),
-                    onClose = { navController.up(entry) },
-                    // Replace, not push: backing out of the expense should reach whatever
-                    // opened the camera, not the camera again.
-                    onSaved = { expenseId -> navController.replace(entry, Routes.expense(expenseId)) },
-                    onSplit = { expenseId -> navController.replace(entry, Routes.split(expenseId)) },
-                    onEnterByHand = { navController.replace(entry, Routes.ADD_EXPENSE) }
-                )
-            }
+                composable(Routes.SETTLE) { SettleScreen() }
 
-            composable(Routes.ADD_EXPENSE) { entry ->
-                AddExpenseScreen(
-                    onClose = { navController.up(entry) },
-                    onSaved = { expenseId -> navController.replace(entry, Routes.expense(expenseId)) },
-                    onScanInstead = { navController.replace(entry, Routes.scan()) },
-                    onSplitInstead = { navController.toTab(Routes.GROUPS) }
-                )
-            }
+                composable(
+                    route = "${Routes.SCAN}?alertId={alertId}",
+                    arguments = listOf(
+                        navArgument("alertId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        }
+                    )
+                ) { entry ->
+                    ScanFlow(
+                        alertId = entry.arguments?.getString("alertId"),
+                        onClose = { navController.up(entry) },
+                        // Replace, not push: backing out of the expense should reach whatever
+                        // opened the camera, not the camera again.
+                        onSaved = { expenseId -> navController.replace(entry, Routes.expense(expenseId)) },
+                        onSplit = { expenseId -> navController.replace(entry, Routes.split(expenseId)) },
+                        onEnterByHand = { navController.replace(entry, Routes.ADD_EXPENSE) }
+                    )
+                }
 
-            composable(Routes.MONTHLY) { entry ->
-                MonthlyScreen(
-                    onBack = { navController.up(entry) },
-                    onOpenInbox = { navController.toTab(Routes.INBOX) },
-                    onAddExpense = { navController.push(entry, Routes.ADD_EXPENSE) },
-                    onOpenSettle = { navController.toTab(Routes.SETTLE) }
-                )
-            }
+                composable(Routes.ADD_EXPENSE) { entry ->
+                    AddExpenseScreen(
+                        onClose = { navController.up(entry) },
+                        onSaved = { expenseId -> navController.replace(entry, Routes.expense(expenseId)) },
+                        onScanInstead = { navController.replace(entry, Routes.scan()) },
+                        onSplitInstead = { navController.toTab(Routes.GROUPS) }
+                    )
+                }
 
-            composable(Routes.PROFILE) { entry ->
-                ProfileScreen(
-                    onBack = { navController.up(entry) },
-                    onSignedOut = { /* the root state flips and sign-in takes over */ },
-                    onOpenMonthly = { navController.push(entry, Routes.MONTHLY) },
-                    onRequestSmsPermission = {
-                        smsPermission.launch(
-                            arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS)
-                        )
-                    }
-                )
-            }
+                composable(Routes.MONTHLY) { entry ->
+                    MonthlyScreen(
+                        onBack = { navController.up(entry) },
+                        onOpenInbox = { navController.toTab(Routes.INBOX) },
+                        onAddExpense = { navController.push(entry, Routes.ADD_EXPENSE) },
+                        onOpenSettle = { navController.toTab(Routes.SETTLE) }
+                    )
+                }
 
-            composable(
-                route = "${Routes.EXPENSE}/{expenseId}",
-                arguments = listOf(navArgument("expenseId") { type = NavType.StringType })
-            ) { entry ->
-                val id = entry.arguments?.getString("expenseId").orEmpty()
-                ExpenseDetailScreen(
-                    expenseId = id,
-                    onBack = { navController.up(entry) },
-                    onEditSplit = { navController.push(entry, Routes.split(it)) },
-                    onSplitByItem = { navController.push(entry, Routes.split(it)) },
-                    onDeleted = { navController.up(entry) }
-                )
-            }
+                composable(Routes.PROFILE) { entry ->
+                    ProfileScreen(
+                        onBack = { navController.up(entry) },
+                        onSignedOut = { /* the root state flips and sign-in takes over */ },
+                        onOpenMonthly = { navController.push(entry, Routes.MONTHLY) },
+                        onRequestSmsPermission = {
+                            smsPermission.launch(
+                                arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS)
+                            )
+                        }
+                    )
+                }
 
-            composable(
-                route = "${Routes.SPLIT}/{expenseId}",
-                arguments = listOf(navArgument("expenseId") { type = NavType.StringType })
-            ) { entry ->
-                val id = entry.arguments?.getString("expenseId").orEmpty()
-                SplitScreen(
-                    expenseId = id,
-                    onBack = { navController.up(entry) },
-                    onSaved = { navController.up(entry) },
-                    onSplitByItem = { /* the split screen handles item mode inline */ }
-                )
-            }
+                composable(
+                    route = "${Routes.EXPENSE}/{expenseId}",
+                    arguments = listOf(navArgument("expenseId") { type = NavType.StringType })
+                ) { entry ->
+                    val id = entry.arguments?.getString("expenseId").orEmpty()
+                    ExpenseDetailScreen(
+                        expenseId = id,
+                        onBack = { navController.up(entry) },
+                        onEditSplit = { navController.push(entry, Routes.split(it)) },
+                        onSplitByItem = { navController.push(entry, Routes.split(it)) },
+                        onDeleted = { navController.up(entry) }
+                    )
+                }
 
-            composable(
-                route = "${Routes.GROUP}/{groupId}",
-                arguments = listOf(navArgument("groupId") { type = NavType.StringType })
-            ) { entry ->
-                val id = entry.arguments?.getString("groupId").orEmpty()
-                GroupDetailScreen(
-                    groupId = id,
-                    onBack = { navController.up(entry) },
-                    onOpenExpense = { navController.push(entry, Routes.expense(it)) },
-                    onAddExpense = { navController.push(entry, Routes.ADD_EXPENSE) },
-                    onSettleUp = { navController.toTab(Routes.SETTLE) }
-                )
+                composable(
+                    route = "${Routes.SPLIT}/{expenseId}",
+                    arguments = listOf(navArgument("expenseId") { type = NavType.StringType })
+                ) { entry ->
+                    val id = entry.arguments?.getString("expenseId").orEmpty()
+                    SplitScreen(
+                        expenseId = id,
+                        onBack = { navController.up(entry) },
+                        onSaved = { navController.up(entry) },
+                        onSplitByItem = { /* the split screen handles item mode inline */ }
+                    )
+                }
+
+                composable(
+                    route = "${Routes.GROUP}/{groupId}",
+                    arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+                ) { entry ->
+                    val id = entry.arguments?.getString("groupId").orEmpty()
+                    GroupDetailScreen(
+                        groupId = id,
+                        onBack = { navController.up(entry) },
+                        onOpenExpense = { navController.push(entry, Routes.expense(it)) },
+                        onAddExpense = { navController.push(entry, Routes.ADD_EXPENSE) },
+                        onSettleUp = { navController.toTab(Routes.SETTLE) }
+                    )
+                }
             }
         }
     }

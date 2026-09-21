@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
@@ -64,6 +65,9 @@ fun MonthlyScreen(
     var selectedCategory by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
+        // Transparent so the app-wide grid behind the NavHost shows through; a Scaffold
+        // otherwise paints an opaque `background` over it.
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = {
@@ -102,7 +106,7 @@ fun MonthlyScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.Transparent
                 )
             )
         },
