@@ -28,11 +28,25 @@ const Schema = z.object({
   GOOGLE_VISION_API_KEY: z.string().optional(),
   SCAN_MAX_BYTES: z.coerce.number().int().positive().default(12 * 1024 * 1024),
 
+  /**
+   * `local` writes to the filesystem, which is only durable on a VM with a disk. Anything
+   * serverless — Cloud Run, App Runner, Fargate — needs `s3`, or receipts vanish when the
+   * instance is recycled.
+   */
   STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
   STORAGE_LOCAL_DIR: z.string().default('.storage'),
   S3_BUCKET: z.string().optional(),
   S3_REGION: z.string().optional(),
+  /** Required for anything that is not AWS: GCS and Oracle both need their endpoint. */
   S3_ENDPOINT: z.string().optional(),
+  /** Omit on EC2/ECS/GKE and let the instance role or workload identity supply them. */
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  /** Defaults to true whenever an endpoint is set, which is what non-AWS stores need. */
+  S3_FORCE_PATH_STYLE: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value === 'true')),
 
   FCM_SERVER_KEY: z.string().optional(),
   SMTP_URL: z.string().optional(),

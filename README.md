@@ -485,6 +485,7 @@ project had — makes you navigate two trees to follow one feature.
 | [docs/API.md](docs/API.md) | Every endpoint, with real request and response shapes, error codes and rate limits. |
 | [docs/ANDROID.md](docs/ANDROID.md) | App layout, the two flavours, release builds and R8, the icon, what to know before changing things. |
 | [docs/CI.md](docs/CI.md) | What CI runs, where secrets go, getting the demo APK, cutting a signed release. |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Hosting the API — Cloud Run, App Runner or an Oracle VM — with the domain, storage and worker gotchas that decide whether it works. |
 | [docs/AUDIT.md](docs/AUDIT.md) | The 32 findings in the original app — including the zero-byte `app/build.gradle.kts` that meant it could not build at all. |
 
 ## License
