@@ -49,6 +49,12 @@ import kotlin.math.sin
  * vertically every cycle. A closed curve costs some unpredictability and buys continuity in
  * both position and velocity.
  *
+ * It is drawn once, in the navigation graph behind the NavHost, rather than per screen. That
+ * is what lets it be the app's background instead of Home's: a navigation does not restart its
+ * animation, and there is one Canvas for thirteen screens. The screens that own a Scaffold have
+ * to pass `containerColor = Color.Transparent`, because M3 otherwise paints an opaque
+ * `background` colour straight over it.
+ *
  * The grid drifts underneath by a whole number of cells — one across, two down — and wraps.
  * Whole cells matter for the same reason: a line leaving one edge has to be replaced exactly
  * by its neighbour, so the offset has to come back to zero modulo the cell size. The first
@@ -61,8 +67,19 @@ fun GridBackground(
     /** Set false to stop it — a permanently moving background is never free. */
     animated: Boolean = true,
     cellSize: Dp = 52.dp,
-    /** The brightest the lit part gets. The unlit grid is a fraction of this. */
-    maxAlpha: Float = if (isSystemInDarkTheme()) 0.34f else 0.16f
+    /**
+     * What the grid is worth away from the light, and this is the number that decides
+     * whether it covers the screen.
+     *
+     * It used to be derived — 0.22 of the peak, which came out at 0.075 — and at that value
+     * a 1px line on a dark background is not there. The grid was drawn edge to edge the whole
+     * time; only the lit part could be seen, so it read as one bright square in the middle
+     * with nothing around it. It is a value in its own right now, set where a line is
+     * genuinely visible.
+     */
+    restAlpha: Float = if (isSystemInDarkTheme()) 0.15f else 0.08f,
+    /** What the grid is worth under the light. */
+    litAlpha: Float = if (isSystemInDarkTheme()) 0.42f else 0.22f
 ) {
     val transition = rememberInfiniteTransition(label = "grid")
 
@@ -94,7 +111,8 @@ fun GridBackground(
             travel = travel,
             cell = cellSize.toPx(),
             color = color,
-            maxAlpha = maxAlpha
+            restAlpha = restAlpha,
+            litAlpha = litAlpha
         )
     }
 }
@@ -105,12 +123,19 @@ private const val SAMPLES = 12
 /**
  * Past this many falloff radii from the light, a line is drawn straight in one stroke.
  *
- * Most lines are nowhere near the light at any moment, and subdividing them buys a curve too
- * small to see. Without this the background costs around 530 draw calls a frame at phone
- * size; with it, typically under 150. On a background that never stops animating, on devices
- * going back to API 26, that is the difference between free and not.
+ * At this distance the light's influence is 0.03, so the difference it would have made to a
+ * segment's alpha is under 0.01 — below what the eye resolves on a 1px line, and below the
+ * rounding of an 8-bit channel.
+ *
+ * This saved more when the light was narrower. With the radius at half the long edge almost
+ * every line on a phone screen is now within range, so the honest figure is around 380 short
+ * strokes a frame rather than the 150 this once bought. That is the price of a grid that
+ * covers the screen, and it is roughly what a detailed vector drawable costs.
+ *
+ * It is worth saying plainly that this now runs on every screen rather than on Home only, and
+ * it never stops. `animated = false` is the switch if it ever needs to come off a slow device.
  */
-private const val FAR = 1.7f
+private const val FAR = 1.5f
 
 /** How far the light pushes the grid apart, as a fraction of a cell. */
 private const val BULGE = 0.5f
@@ -120,7 +145,8 @@ private fun DrawScope.drawLitGrid(
     travel: Float,
     cell: Float,
     color: Color,
-    maxAlpha: Float
+    restAlpha: Float,
+    litAlpha: Float
 ) {
     val width = size.width
     val height = size.height
@@ -135,7 +161,9 @@ private fun DrawScope.drawLitGrid(
         x = width * (0.5f + 0.34f * sin(2f * angle + 0.9f)),
         y = height * (0.45f + 0.16f * sin(3f * angle))
     )
-    val radius = maxOf(width, height) * 0.36f
+    // Half the long edge. At 0.36 the falloff was spent well before the top and bottom of a
+    // phone screen, which is the other half of why it looked like one square.
+    val radius = maxOf(width, height) * 0.50f
     val bulge = cell * BULGE
 
     // Drifts diagonally, wrapping on a WHOLE number of cells in each axis — one across, two
@@ -145,8 +173,7 @@ private fun DrawScope.drawLitGrid(
     val offsetY = drift * cell * 2f
 
     val stroke = 1.dp.toPx()
-    // The unlit grid is present but barely; the light is what makes it legible.
-    val baseAlpha = maxAlpha * 0.22f
+    val baseAlpha = restAlpha
 
     /** How strongly the light affects a point: 1 at the centre, falling off smoothly. */
     fun influence(p: Offset): Float {
@@ -191,7 +218,7 @@ private fun DrawScope.drawLitGrid(
 
             // Toward white and more opaque as the light gets closer: "darker" everywhere
             // else, so the lit part reads as a filament rather than a wash.
-            val alpha = baseAlpha + (maxAlpha - baseAlpha) * strength
+            val alpha = baseAlpha + (litAlpha - baseAlpha) * strength
             val segmentColor = lerp(color, Color.White, strength * 0.75f).copy(alpha = alpha)
             drawLine(
                 color = segmentColor,
