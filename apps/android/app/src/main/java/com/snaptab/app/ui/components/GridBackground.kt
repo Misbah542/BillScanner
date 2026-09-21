@@ -13,147 +13,201 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.exp
+import kotlin.math.hypot
+import kotlin.math.sin
 
 /**
- * A perspective grid receding to a horizon, drifting toward the viewer.
+ * A flat grid with a light moving under it, bulging and brightening whatever it passes.
  *
- * The geometry is a floor plane under a camera, which is what makes it read as depth rather
- * than as a pattern. For a row of lines at increasing distance `z`, the screen position is
- * `horizon + k / z` — the reciprocal is the whole trick. Evenly spaced lines in the world
- * bunch up toward the horizon on screen exactly the way a real floor does, and animating a
- * fractional offset into `z` slides the whole field forward: each line accelerates as it
- * approaches, because 1/z changes faster as z gets small.
+ * The grid itself is square on — no perspective, no rotation, no vanishing point. All the
+ * depth comes from one travelling focus:
  *
- * Verticals are straight lines from the vanishing point to the bottom edge. They need no
- * projection — in a one-point perspective every line parallel to the view direction meets
- * at that single point.
+ * **It scales.** Every grid line is drawn as a chain of short segments rather than one
+ * straight line, and each sample point is pushed *away* from the focus by a Gaussian
+ * falloff. Cells near the focus spread apart and the lines through them bow outward, so the
+ * surface reads as being pressed up from underneath. A straight line cannot do this — the
+ * curve is the effect, and it is why the extra segments are worth their cost.
  *
- * Three things keep it from becoming noise behind real content:
+ * **It brightens.** The same falloff lifts each segment's colour toward white and its alpha
+ * with it, so the grid runs from nearly invisible at the edges to a bright filament at the
+ * centre of the light. Brightness varies *along* each line, not per line, which is what
+ * stops it looking like a highlighted row.
  *
- * It is slow. A 9 second loop reads as drift, not motion; anything quicker competes with
- * the content for attention and makes text harder to read.
- *
- * It fades twice. Once by depth, so lines emerge from the horizon rather than popping in at
- * full strength, and once by height, so the grid is gone before it reaches the content at
- * the top of the screen. Without the second fade the horizon is a hard bright line.
- *
- * It is faint. Alpha tops out around 0.2 in the dark theme and lower in light, which is
- * enough to feel like depth and not enough to read as a chart.
+ * The focus travels a Lissajous path — two sine waves on an irrational-ish frequency ratio —
+ * so it wanders without ever settling into a loop you can predict. On top of that the whole
+ * grid drifts diagonally by exactly one cell and wraps, which is seamless because a line
+ * leaving one edge is the next line arriving at the other.
  */
 @Composable
 fun GridBackground(
     modifier: Modifier = Modifier,
     color: Color = if (isSystemInDarkTheme()) Color(0xFF7FC9B8) else Color(0xFF0F6B5C),
-    /** Set false to stop the animation — an always-moving background is never free. */
+    /** Set false to stop it — a permanently moving background is never free. */
     animated: Boolean = true,
-    /** Where the horizon sits, as a fraction of height. Lower means more floor. */
-    horizonFraction: Float = 0.34f,
-    maxAlpha: Float = if (isSystemInDarkTheme()) 0.20f else 0.10f
+    cellSize: Dp = 52.dp,
+    /** The brightest the lit part gets. The unlit grid is a fraction of this. */
+    maxAlpha: Float = if (isSystemInDarkTheme()) 0.34f else 0.16f
 ) {
     val transition = rememberInfiniteTransition(label = "grid")
+
     // One code path whether or not it animates: with the target equal to the start there is
-    // nothing to interpolate, so the grid is drawn and simply stays put. Branching here
-    // instead would mean two different state types behind one `by`.
-    val phase by transition.animateFloat(
+    // nothing to interpolate, so the grid is drawn and simply holds still.
+    val drift by transition.animateFloat(
         initialValue = 0f,
         targetValue = if (animated) 1f else 0f,
         animationSpec = infiniteRepeatable(
-            // Linear on purpose: the perspective already supplies the acceleration, and an
-            // eased phase on top of it reads as a stutter.
-            animation = tween(durationMillis = 9_000, easing = LinearEasing),
+            // Linear and wrapping on exactly one cell, so there is no seam and no stutter.
+            animation = tween(durationMillis = 14_000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "grid-phase"
+        label = "grid-drift"
+    )
+    val travel by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = if (animated) 1f else 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 19_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "grid-travel"
     )
 
     Canvas(modifier = modifier.fillMaxSize()) {
-        drawPerspectiveGrid(
-            phase = phase,
+        drawLitGrid(
+            drift = drift,
+            travel = travel,
+            cell = cellSize.toPx(),
             color = color,
-            horizonY = size.height * horizonFraction,
             maxAlpha = maxAlpha
         )
     }
 }
 
-/** Rows of depth to draw. Beyond about 14 the lines are closer than a pixel apart. */
-private const val DEPTH_LINES = 14
+/** Sample points along each line. Enough for the bow to look smooth, few enough to be cheap. */
+private const val SAMPLES = 12
 
-/** Verticals either side of centre. */
-private const val COLUMNS = 7
+/**
+ * Past this many falloff radii from the light, a line is drawn straight in one stroke.
+ *
+ * Most lines are nowhere near the light at any moment, and subdividing them buys a curve too
+ * small to see. Without this the background costs around 530 draw calls a frame at phone
+ * size; with it, typically under 150. On a background that never stops animating, on devices
+ * going back to API 26, that is the difference between free and not.
+ */
+private const val FAR = 1.7f
 
-private fun DrawScope.drawPerspectiveGrid(
-    phase: Float,
+/** How far the light pushes the grid apart, as a fraction of a cell. */
+private const val BULGE = 0.5f
+
+private fun DrawScope.drawLitGrid(
+    drift: Float,
+    travel: Float,
+    cell: Float,
     color: Color,
-    horizonY: Float,
     maxAlpha: Float
 ) {
     val width = size.width
     val height = size.height
-    val centerX = width / 2f
-    val floorHeight = height - horizonY
-    if (floorHeight <= 0f) return
+    if (width <= 0f || height <= 0f || cell <= 1f) return
 
-    val strokeThin = 1.dp.toPx()
-
-    // ---- verticals: straight lines out of the vanishing point ----
-    // Spread well past the screen edge so the outermost ones leave at the bottom corners
-    // rather than stopping short inside the frame.
-    val spread = width * 1.9f
-    for (i in -COLUMNS..COLUMNS) {
-        val t = i.toFloat() / COLUMNS
-        val bottomX = centerX + t * spread
-        // Faint at the centre, stronger toward the edges: the middle of the fan is where the
-        // lines crowd together, and full strength there turns into a solid wedge.
-        val alpha = maxAlpha * (0.35f + 0.65f * abs(t))
-        drawLine(
-            color = color.copy(alpha = alpha),
-            start = Offset(centerX, horizonY),
-            end = Offset(bottomX, height),
-            strokeWidth = strokeThin,
-            cap = StrokeCap.Round
-        )
-    }
-
-    // ---- horizontals: the floor rows, projected by 1/z ----
-    for (i in 0 until DEPTH_LINES) {
-        // The fractional phase is what moves the field. Adding it to z means row 0 walks
-        // from the horizon to the viewer and the next row takes its place.
-        val z = i + 1f - phase
-        if (z <= 0f) continue
-        val y = horizonY + floorHeight / z
-
-        // Past the bottom of the screen: it has gone by.
-        if (y > height) continue
-
-        // Depth fade — 1/z again, so a row emerges rather than appearing.
-        val depthAlpha = (1f / z).coerceIn(0f, 1f)
-        // Height fade — gone before it reaches the content above.
-        val riseAlpha = ((y - horizonY) / floorHeight).coerceIn(0f, 1f)
-        drawLine(
-            color = color.copy(alpha = maxAlpha * depthAlpha * riseAlpha),
-            start = Offset(0f, y),
-            end = Offset(width, y),
-            strokeWidth = strokeThin,
-            cap = StrokeCap.Round
-        )
-    }
-
-    // A soft glow sitting on the horizon, which is what stops it looking like a cut edge.
-    drawRect(
-        brush = Brush.verticalGradient(
-            colors = listOf(Color.Transparent, color.copy(alpha = maxAlpha * 0.5f), Color.Transparent),
-            startY = horizonY - floorHeight * 0.06f,
-            endY = horizonY + floorHeight * 0.06f
-        ),
-        topLeft = Offset(0f, horizonY - floorHeight * 0.06f),
-        size = Size(width, floorHeight * 0.12f)
+    // Where the light is. Two sines on a 1 : 0.73 ratio, so the path does not close back on
+    // itself in any period short enough to notice.
+    val angle = travel * 2f * PI.toFloat()
+    val focus = Offset(
+        x = width * (0.5f + 0.32f * sin(angle)),
+        y = height * (0.45f + 0.30f * sin(angle * 0.73f + 1.7f))
     )
+    val radius = maxOf(width, height) * 0.36f
+    val bulge = cell * BULGE
+
+    // Drifts diagonally, wrapping on one cell in each axis.
+    val offsetX = drift * cell
+    val offsetY = drift * cell * 0.6f
+
+    val stroke = 1.dp.toPx()
+    // The unlit grid is present but barely; the light is what makes it legible.
+    val baseAlpha = maxAlpha * 0.22f
+
+    /** How strongly the light affects a point: 1 at the centre, falling off smoothly. */
+    fun influence(p: Offset): Float {
+        val d = hypot(p.x - focus.x, p.y - focus.y) / radius
+        return exp(-d * d * 1.6f)
+    }
+
+    /** Pushes a point away from the light, which is what spreads the cells apart. */
+    fun displace(p: Offset, strength: Float): Offset {
+        if (strength <= 0.004f) return p
+        val dx = p.x - focus.x
+        val dy = p.y - focus.y
+        val len = hypot(dx, dy)
+        if (len < 0.001f) return p
+        val push = bulge * strength
+        return Offset(p.x + (dx / len) * push, p.y + (dy / len) * push)
+    }
+
+    /**
+     * Draws one line as a chain of segments, each displaced and lit on its own.
+     *
+     * `at` maps 0..1 along the line to a point, so the same code draws both families.
+     */
+    fun drawLit(distanceToLight: Float, at: (Float) -> Offset) {
+        if (distanceToLight > radius * FAR) {
+            // Too far to be bent or brightened: one stroke at the resting alpha.
+            drawLine(
+                color = color.copy(alpha = baseAlpha),
+                start = at(0f),
+                end = at(1f),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round
+            )
+            return
+        }
+        var previous = displace(at(0f), influence(at(0f)))
+        for (s in 1..SAMPLES) {
+            val t = s.toFloat() / SAMPLES
+            val raw = at(t)
+            val strength = influence(raw)
+            val point = displace(raw, strength)
+
+            // Toward white and more opaque as the light gets closer: "darker" everywhere
+            // else, so the lit part reads as a filament rather than a wash.
+            val alpha = baseAlpha + (maxAlpha - baseAlpha) * strength
+            val segmentColor = lerp(color, Color.White, strength * 0.75f).copy(alpha = alpha)
+            drawLine(
+                color = segmentColor,
+                start = previous,
+                end = point,
+                // The lit stretch is drawn a little heavier, which is most of what sells it.
+                strokeWidth = stroke * (1f + strength * 1.1f),
+                cap = StrokeCap.Round
+            )
+            previous = point
+        }
+    }
+
+    // One cell of bleed on every side, so a displaced line never ends inside the frame.
+    val columns = (width / cell).toInt() + 3
+    val rows = (height / cell).toInt() + 3
+    val left = -cell
+    val top = -cell
+
+    // For an axis-aligned line the distance to the light is just the perpendicular gap, so
+    // the early-out costs one subtraction per line.
+    for (c in 0..columns) {
+        val x = left + c * cell + offsetX
+        drawLit(abs(x - focus.x)) { t -> Offset(x, top + t * (height + 2f * cell)) }
+    }
+    for (r in 0..rows) {
+        val y = top + r * cell + offsetY
+        drawLit(abs(y - focus.y)) { t -> Offset(left + t * (width + 2f * cell), y) }
+    }
 }
