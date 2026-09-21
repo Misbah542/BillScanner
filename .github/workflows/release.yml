@@ -119,6 +119,9 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_RELEASE_API_BASE_URL: ${{ secrets.ANDROID_RELEASE_API_BASE_URL }}
+          # Absent for a demo release, and absent until Google sign-in is set up, which
+          # is fine either way: empty hides the button rather than breaking the build.
+          ANDROID_GOOGLE_CLIENT_ID: ${{ secrets.ANDROID_GOOGLE_CLIENT_ID }}
         run: |
           set -euo pipefail
           # demo -> Demo, live -> Live

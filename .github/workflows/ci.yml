@@ -211,6 +211,28 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # The live flavour with real configuration, so the variant people actually install
+      # is built on every push rather than only at release time. Both values come from
+      # repository secrets: nothing about a deployment is committed, and a fork or a PR
+      # from one simply gets the empty defaults — an APK pointed at the emulator
+      # loopback with the Google button hidden, which is a working build, not a failure.
+      - name: Build the live debug APK
+        run: ./gradlew assembleLiveDebug
+        working-directory: apps/android
+        env:
+          ANDROID_GOOGLE_CLIENT_ID: ${{ secrets.ANDROID_GOOGLE_CLIENT_ID }}
+          ANDROID_DEBUG_API_BASE_URL: ${{ secrets.ANDROID_DEBUG_API_BASE_URL }}
+
+      - name: Upload the live debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: snaptab-live-debug
+          # Talks to a real API. Debug signing, so `adb install -r <file>` works, and
+          # debug builds can reach cleartext only on 10.0.2.2, 127.0.0.1 and localhost.
+          path: apps/android/app/build/outputs/apk/live/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload test and lint reports
         if: always()
         uses: actions/upload-artifact@v4
